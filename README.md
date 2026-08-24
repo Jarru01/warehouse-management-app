@@ -1,47 +1,82 @@
-# Warehouse Management Simulation
+# Warehouse Management System
 
-A Java-based console application simulating a real-world warehouse logistics network. This project implements strict Object-Oriented Programming (OOP) principles, featuring role-based terminal access, package-structured logic, component capacity tracking, and state persistence via flat-file data streams.
-
----
+A Java-based console application modeling a role-based warehouse management
+workflow. Built on strict Object-Oriented Programming principles, it features
+role-based terminal access, package-structured logic, storage capacity
+tracking, and state persistence via flat-file data streams.
 
 ## 🚀 Features
 
-* **Role-Based Access Control:** Distinct terminal interfaces and actions tailored for three explicit system actors:
-  * **Director (`Riaditel`):** Handles Human Resources tasks such as hiring and dismissing warehouse workers.
-  * **Worker (`Pracovnik`):** Navigates through storage rooms, handles inventory adjustments, and manipulates goods inside racks.
-  * **Customer (`Zakaznik`):** Deposits items into the system and retrieves them using unique identifiers.
-* **Storage Capacity Management:** Segregated storage handling separating large warehouses (`VelkySklad`) with expandable racks from small warehouses (`MalySklad`) featuring rigid, fixed capacity ceilings.
-* **State Persistence:** Automatic backup routine that serializes the current state of the warehouse (including rooms, items, employees, and user databases) to a text file on exit, and cleanly re-hydrates the ecosystem upon system launch.
-* **Modular Architecture:** Structured clean code decoupling domain entities, interfaces, file management, and input-handling console terminals.
+- **Role-Based Access Control** — distinct terminal interfaces and actions for three system actors:
+  - **Director (`Riaditel`)** — HR tasks: hiring and dismissing warehouse workers.
+  - **Worker (`Pracovnik`)** — navigates storage rooms, adjusts inventory, handles goods inside racks.
+  - **Customer (`Zakaznik`)** — deposits items and retrieves them by unique identifier.
+- **Storage Capacity Management** — large warehouses (`VelkySklad`) with expandable racks vs. small warehouses (`MalySklad`) with rigid fixed capacity ceilings.
+- **State Persistence** — on exit, the current state (rooms, items, employees, users) is serialized to a text file and cleanly restored on the next launch.
+- **Modular Architecture** — domain entities, interfaces, file handling, and console terminals are decoupled into functional packages.
 
----
+## 📖 Domain Glossary
 
-## 📁 Project Architecture & Packages
+The code uses Slovak domain names. Quick reference:
 
-The codebase is strictly organized into functional domain packages:
+| Identifier | Meaning |
+|---|---|
+| `Sklad` | warehouse |
+| `miestnosti` | rooms |
+| `Regal` | storage rack |
+| `Tovar` | goods / item |
+| `osoby` | people |
+| `terminaly` | interactive console terminals |
+| `pracaSoSuborom` | file handling |
 
-| Package | Component / Interface | Description |
-| :--- | :--- | :--- |
-| **Root** | `Main` | System bootstrap layer; handles configuration loading and initial identity verification menu. |
-| `sklad` | `Sklad`, `IIdentifikovatelny`, `VytvaracTovaru` | Manages global warehouse data frames, unique ID schemas, and GUI/helper utilities for item creation. |
-| `miestnosti` | `ISkladovaMiestnost`, `Miestnost`, `VelkySklad`, `MalySklad` | Handles structural floor layout mechanics, containing employee directories and structural inventory racks. |
-| `osoby` | `Osoba`, `Pracovnik`, `Riaditel`, `Zakaznik` | Abstract and concrete models representing personnel and external system actors. |
-| `predmety` | `Regal`, `Tovar` | Models physics properties of inventory holdings: spatial constraints (racks) and target items (goods). |
-| `terminaly` | `ITerminal`, `Terminal[Actor]` | Interactive IO loops mapping terminal console workflows dynamically based on logged-in privileges. |
-| `pracaSoSuborom`| `CitacSuboru`, `ZapisovacSuboru` | Lower-level file stream readers/writers providing long-term persistence cycles. |
+## 📁 Architecture & Packages
 
----
+| Package | Key components | Responsibility |
+|---|---|---|
+| *(root)* | `Main` | bootstrap, configuration loading, login menu |
+| `sklad` | `Sklad`, `IIdentifikovatelny`, `VytvaracTovaru` | central warehouse state, ID schema, item-creation helper |
+| `sklad.miestnosti` | `ISkladovaMiestnost`, `Miestnost`, `VelkySklad`, `MalySklad` | room layouts, employee directories, capacity rules |
+| `sklad.osoby` | `Osoba`, `Pracovnik`, `Riaditel`, `Zakaznik` | personnel and external actor models |
+| `sklad.predmety` | `Regal`, `Tovar` | racks and stored goods |
+| `sklad.terminaly` | `ITerminal`, `Terminal[Actor]` | privilege-mapped console workflows |
+| `sklad.pracaSoSuborom` | `CitacSuboru`, `ZapisovacSuboru` | low-level read/write persistence |
 
-## 🛠️ Prerequisites & Build
+## 🛠️ Build
 
-* **Java Development Kit (JDK):** Version 11 or higher recommended.
-* **IDE:** IntelliJ IDEA (preferred) or any standard Java compiler.
+Requires **JDK 11+**.
 
-### Compiling and Packing via CLI
-To compile the source code and export a portable executable JAR archive:
+> Note: `src/**/*.java` globs do not expand on Windows shells, so compile from a sources list instead.
+
+**Windows (PowerShell):**
+```powershell
+Get-ChildItem -Recurse src -Filter *.java |
+  ForEach-Object { $_.FullName } | Set-Content sources.txt
+javac -d out "@sources.txt"
+jar cfe WarehouseSystem.jar sk.uniza.fri.Main -C out .
+```
+
+**Linux / macOS:**
 ```bash
-# Navigate to source folder and compile
-javac -d out src/**/*.java
+find src -name "*.java" > sources.txt
+javac -d out "@sources.txt"
+jar cfe WarehouseSystem.jar sk.uniza.fri.Main -C out .
+```
 
-# Build executable JAR
-jar cfe WarehouseSimulation.jar Main -C out .
+Alternatively, open the project in IntelliJ IDEA and run `sk.uniza.fri.Main` directly.
+
+## ▶️ Run
+
+```bash
+java -jar WarehouseSystem.jar
+```
+
+## 💾 Persistence
+
+On exit the application saves the warehouse state to a plain-text data file
+next to the program and restores it automatically on startup. Delete the file
+to reset the system to a fresh state.
+
+## ℹ️ Notes
+
+Generated `JavaDoc/` output and compiled artifacts are committed for
+convenience; `src/` remains the single source of truth.

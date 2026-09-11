@@ -1,1 +1,0 @@
-packageSearchIndex = [{"l":"All Packages","u":"allpackages-index.html"},{"l":"sk.uniza.fri"},{"l":"sk.uniza.fri.sklad"},{"l":"sk.uniza.fri.sklad.miestnosti"},{"l":"sk.uniza.fri.sklad.osoby"},{"l":"sk.uniza.fri.sklad.pracaSoSuborom"},{"l":"sk.uniza.fri.sklad.predmety"},{"l":"sk.uniza.fri.sklad.terminaly"}];updateSearchResults();

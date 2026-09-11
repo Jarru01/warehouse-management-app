@@ -1,0 +1,27 @@
+# Build output
+out/
+build/
+.gradle/
+
+# Generated documentation
+JavaDoc/
+docs/generated/
+
+# Runtime state
+sklad.dat
+sklad.dat.tmp
+sklad.dat.korumpovany-*
+sklad.txt
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# OS / misc
+.DS_Store
+Thumbs.db
+sources.txt
+hs_err_pid*
+*.log

@@ -1,0 +1,280 @@
+@startuml
+'https://plantuml.com/class-diagram
+skinparam classAttributeIconSize 0
+
+class Main {
+--
++{static}main(args: String[]): void
+}
+
+interface IIdentifikovatelny {
+--
++getId(): String
+}
+
+class Validacia <<utility>> {
+--
++{static}jeCislo(vstup: String): boolean
++{static}jeText(vstup: String): boolean
++{static}jeNazov(vstup: String): boolean
++{static}jeKladneCislo(vstup: String): boolean
+}
+
+class Sklad {
+-zoznamMiestnosti: Map<String, Miestnost>
+-zoznamPracovnikov: Map<String, Pracovnik>
+-riaditelSkladu: Riaditel
+--
++{static}new(): Sklad
++spusti(vstup: Vstup): void
++vyberPouzivatela(vstup: Vstup): boolean
++getZoznamMiestnosti(): Map<String,Miestnost>
++getZoznamPracovnikov(): Map<String,Pracovnik>
++getRiaditelSkladu(): Riaditel
++getMiestnost(kluc: String): Miestnost
++getSkladTovaru(): VelkySklad
++getPrijemTovaru(): MalySklad
++getVydajTovaru(): MalySklad
++pridajPracovnika(pracovnik: Pracovnik): boolean
++odoberPracovnika(id: String): Pracovnik
++ulozZmeny(): void
+}
+
+class VytvaracTovaru {
+-sklad: Sklad
+-vstup: Vstup
+--
++{static}new(sklad: Sklad, vstup: Vstup): VytvaracTovaru
++vytvorTovar(odosielatel: Zakaznik): Tovar
+}
+
+interface ISkladovaMiestnost {
+--
++getRegal(): Regal
++vypisZoznamuRegalov(): String
+}
+
+abstract class Miestnost {
+-popisMiestnosti: String
+-zoznamPracovnikov: Map<String, Pracovnik>
+--
++{static}new(popisMiestnosti: String): Miestnost
++getPopisMiestnosti(): String
++vypisZoznamuPracovnikov(): String
++pridajPracovnika(pracovnik: Pracovnik): boolean
++odoberPracovnika(pracovnik: Pracovnik): boolean
+}
+
+class MalySklad extends Miestnost implements ISkladovaMiestnost {
+-regal: Regal
+--
++{static}new(popisMiestnosti: String): MalySklad
++getRegal(): Regal
++vypisZoznamuRegalov(): String
+}
+
+class VelkySklad extends Miestnost implements ISkladovaMiestnost {
+-zoznamRegalov: List<Regal>
+--
++{static}new(popisMiestnosti: String): VelkySklad
++getRegal(): Regal
++getRegal(index: int): Regal
++vypisZoznamuRegalov(): String
++pridajRegal(kapacita: int): boolean
++odstranRegal(index: int): boolean
++getZoznamRegalov(): List<Regal>
+}
+
+abstract class Osoba {
+-meno: String
+-priezvisko: String
+--
++{static}new(meno: String, priezvisko: String): Osoba
++getMeno(): String
++getPriezvisko(): String
++toString(): String
+}
+
+class Pracovnik extends Osoba implements IIdentifikovatelny {
+-sklad: Sklad
+-id: String
+-aktualnaMiestnost: Miestnost
+-aktualnyTovar: Tovar
+--
++{static}new(meno: String, priezvisko: String, sklad: Sklad, id: String): Pracovnik
++getId(): String
++getAktualnaMiestnost(): Miestnost
++getAktualnyTovar(): Tovar
++mamTovar(): boolean
++chodDoMiestnosti(kluc: String): boolean
++premiestniDo(miestnost: Miestnost): void
++opustiMiestnost(): void
++zoberTovar(id: String): boolean
++zoberTovar(id: String, indexRegalu: int): boolean
++ulozTovar(): boolean
++zoznamRegalovAktualnejMiestnosti(): String
++toString(): String
+}
+
+class Riaditel extends Osoba implements IIdentifikovatelny {
+-sklad: Sklad
+-id: String
+--
++{static}new(meno: String, priezvisko: String, sklad: Sklad, id: String): Riaditel
++getId(): String
++getZoznamPracovnikov(): Map<String,Pracovnik>
++vypisZoznamPracovnikov(): String
++vypisTovar(): String
++pridajRegal(kapacita: int): boolean
++odstranRegal(index: int): boolean
++prijmiPracovnika(pracovnik: Pracovnik): boolean
++vylucPracovnika(id: String): boolean
+}
+
+class Zakaznik extends Osoba implements IIdentifikovatelny {
+-id: String
+-prijemTovaru: MalySklad
+-vydajTovaru: MalySklad
+--
++{static}new(id: String, meno: String, priezvisko: String, prijemTovaru: MalySklad, vydajTovaru: MalySklad): Zakaznik
++getId(): String
++ulozTovar(tovar: Tovar): boolean
++vyzdvihniTovar(tovar: Tovar): boolean
+}
+
+class CitacSuboru {
+-subor: Path
+--
++{static}new(): CitacSuboru
++{static}new(subor: Path): CitacSuboru
++nacitaj(): Sklad
+}
+
+class ZapisovacSuboru {
++{static}PREDVOLENY_SUBOR: String
+-subor: Path
+--
++{static}new(): ZapisovacSuboru
++{static}new(subor: Path): ZapisovacSuboru
++zapis(sklad: Sklad): void
+}
+
+class Regal {
+-zoznamTovaru: Tovar[]
+--
++{static}new(kapacita: int): Regal
++getZoznamTovaru(): Tovar[]
++getTovar(id: String): Tovar
++ulozTovar(tovar: Tovar): boolean
++odoberTovar(id: String): boolean
++maVolneMiesto(): boolean
++jePrazdny(): boolean
++toString(): String
+}
+
+class Tovar implements IIdentifikovatelny {
+-id: String
+-nazovTovaru: String
+-vaha: int
+-odosielatel: Zakaznik
+-prijemca: Zakaznik
+--
++{static}new(id: String, nazovTovaru: String, vaha: int, odosielatel: Zakaznik, prijemca: Zakaznik): Tovar
++getId(): String
++getPrijemca(): Zakaznik
++toString(): String
+}
+
+interface ITerminal {
+--
++nacitajVstup(): String
++spustiTerminal(): void
++zatvorTerminal(): void
++obsluzMenu(): void
+}
+
+class Vstup {
+-scanner: Scanner
+--
++{static}new(scanner: Scanner): Vstup
++nacitaj(): String
+}
+
+class TerminalPracovnika implements ITerminal {
+-sklad: Sklad
+-vstup: Vstup
+-aktualnyPracovnik: Pracovnik
+-pocetPokusov: int
+-aktivny: boolean
+--
++{static}new(sklad: Sklad, vstup: Vstup): TerminalPracovnika
++nacitajVstup(): String
++spustiTerminal(): void
++zatvorTerminal(): void
++obsluzMenu(): void
+}
+
+class TerminalRiaditela implements ITerminal {
+-sklad: Sklad
+-vstup: Vstup
+-riaditel: Riaditel
+-pocetPokusov: int
+-aktivny: boolean
+--
++{static}new(sklad: Sklad, vstup: Vstup): TerminalRiaditela
++nacitajVstup(): String
++spustiTerminal(): void
++zatvorTerminal(): void
++obsluzMenu(): void
+}
+
+class TerminalZakaznika implements ITerminal {
+-sklad: Sklad
+-vstup: Vstup
+-zakaznik: Zakaznik
+-aktivny: boolean
+--
++{static}new(sklad: Sklad, vstup: Vstup): TerminalZakaznika
++nacitajVstup(): String
++spustiTerminal(): void
++zatvorTerminal(): void
++obsluzMenu(): void
+}
+
+Main --> Sklad
+Main --> CitacSuboru
+Main --> Vstup
+
+Sklad o-- Miestnost
+Sklad o-- Pracovnik
+Sklad --> Riaditel
+Sklad ..> ZapisovacSuboru
+
+MalySklad *-- Regal
+VelkySklad *-- Regal
+Regal o-- Tovar
+
+Zakaznik --> MalySklad
+Tovar --> Zakaznik
+Pracovnik --> Sklad
+Pracovnik --> Miestnost
+Pracovnik --> Tovar
+Riaditel --> Sklad
+
+VytvaracTovaru --> Sklad
+VytvaracTovaru ..> Tovar
+TerminalZakaznika --> VytvaracTovaru
+
+TerminalPracovnika ..|> ITerminal
+TerminalRiaditela ..|> ITerminal
+TerminalZakaznika ..|> ITerminal
+TerminalPracovnika --> Vstup
+TerminalRiaditela --> Vstup
+TerminalZakaznika --> Vstup
+
+Tovar ..|> IIdentifikovatelny
+Pracovnik ..|> IIdentifikovatelny
+Riaditel ..|> IIdentifikovatelny
+Zakaznik ..|> IIdentifikovatelny
+
+@enduml

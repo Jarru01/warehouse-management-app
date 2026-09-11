@@ -1,14 +1,10 @@
 package sk.uniza.fri.sklad.predmety;
 
-import java.io.Serializable;
-
 /**
  * Trieda Regal vytvara regal so zadanou kapacitou, ktory uschovava tovar.
  * @author Juraj
  */
-public class Regal implements Serializable {
-    private static final long serialVersionUID = 2L;
-
+public class Regal {
     private final Tovar[] zoznamTovaru;   //zoznam tovaru v regali
 
     /**
@@ -20,6 +16,14 @@ public class Regal implements Serializable {
             throw new IllegalArgumentException("Kapacita regala musi byt kladna.");
         }
         this.zoznamTovaru = new Tovar[kapacita];
+    }
+
+    /**
+     * Vracia kapacitu regala.
+     * @return kapacita regala
+     */
+    public int getKapacita() {
+        return this.zoznamTovaru.length;
     }
 
     /**

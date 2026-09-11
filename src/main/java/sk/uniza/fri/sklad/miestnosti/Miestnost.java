@@ -2,7 +2,6 @@ package sk.uniza.fri.sklad.miestnosti;
 
 import sk.uniza.fri.sklad.osoby.Pracovnik;
 
-import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -11,10 +10,7 @@ import java.util.Map;
  * manipuluje.
  * @author Juraj
  */
-@SuppressWarnings("serial")
-public abstract class Miestnost implements Serializable {
-    private static final long serialVersionUID = 2L;
-
+public abstract class Miestnost {
     private final Map<String, Pracovnik> zoznamPracovnikov; //zoznam pracovnikov v miestnosti
     private final String popisMiestnosti;                    //popis miestnosti
 

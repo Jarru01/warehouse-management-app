@@ -26,6 +26,7 @@ class Sklad {
 -riaditelSkladu: Riaditel
 --
 +{static}new(): Sklad
++{static}prazdny(menoRiaditela: String, priezviskoRiaditela: String, idRiaditela: String): Sklad
 +spusti(vstup: Vstup): void
 +vyberPouzivatela(vstup: Vstup): boolean
 +getZoznamMiestnosti(): Map<String,Miestnost>
@@ -35,6 +36,8 @@ class Sklad {
 +getSkladTovaru(): VelkySklad
 +getPrijemTovaru(): MalySklad
 +getVydajTovaru(): MalySklad
++pridajMiestnost(miestnost: Miestnost): boolean
++registrujPracovnika(pracovnik: Pracovnik): boolean
 +pridajPracovnika(pracovnik: Pracovnik): boolean
 +odoberPracovnika(id: String): Pracovnik
 +ulozZmeny(): void
@@ -109,6 +112,7 @@ class Pracovnik extends Osoba implements IIdentifikovatelny {
 +chodDoMiestnosti(kluc: String): boolean
 +premiestniDo(miestnost: Miestnost): void
 +opustiMiestnost(): void
++obnovStav(miestnost: Miestnost, drzanyTovar: Tovar): void
 +zoberTovar(id: String): boolean
 +zoberTovar(id: String, indexRegalu: int): boolean
 +ulozTovar(): boolean
@@ -159,10 +163,60 @@ class ZapisovacSuboru {
 +zapis(sklad: Sklad): void
 }
 
+class SkladMapper <<utility>> {
++{static}VERZIA: int
++{static}naData(sklad: Sklad): SkladData
++{static}naSklad(data: SkladData): Sklad
+}
+
+class PerzistenciaException
+
+class SkladData <<record>> {
++verzia: int
++riaditel: OsobaData
++miestnosti: List<MiestnostData>
++tovar: List<TovarData>
++pracovnici: List<PracovnikData>
+}
+
+class OsobaData <<record>> {
++id: String
++meno: String
++priezvisko: String
+}
+
+class MiestnostData <<record>> {
++kluc: String
++typ: String
++regale: List<RegalData>
+}
+
+class RegalData <<record>> {
++kapacita: int
++tovar: List<String>
+}
+
+class TovarData <<record>> {
++id: String
++nazov: String
++vaha: int
++odosielatel: OsobaData
++prijemca: OsobaData
+}
+
+class PracovnikData <<record>> {
++id: String
++meno: String
++priezvisko: String
++miestnost: String
++drzanyTovar: String
+}
+
 class Regal {
 -zoznamTovaru: Tovar[]
 --
 +{static}new(kapacita: int): Regal
++getKapacita(): int
 +getZoznamTovaru(): Tovar[]
 +getTovar(id: String): Tovar
 +ulozTovar(tovar: Tovar): boolean
@@ -181,7 +235,10 @@ class Tovar implements IIdentifikovatelny {
 --
 +{static}new(id: String, nazovTovaru: String, vaha: int, odosielatel: Zakaznik, prijemca: Zakaznik): Tovar
 +getId(): String
++getOdosielatel(): Zakaznik
 +getPrijemca(): Zakaznik
++getNazovTovaru(): String
++getVaha(): int
 +toString(): String
 }
 
@@ -249,6 +306,15 @@ Sklad o-- Miestnost
 Sklad o-- Pracovnik
 Sklad --> Riaditel
 Sklad ..> ZapisovacSuboru
+
+CitacSuboru --> SkladMapper
+ZapisovacSuboru --> SkladMapper
+SkladMapper --> SkladData
+SkladData o-- OsobaData
+SkladData o-- MiestnostData
+SkladData o-- TovarData
+SkladData o-- PracovnikData
+MiestnostData o-- RegalData
 
 MalySklad *-- Regal
 VelkySklad *-- Regal

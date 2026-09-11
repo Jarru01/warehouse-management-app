@@ -9,8 +9,6 @@ import sk.uniza.fri.sklad.predmety.Tovar;
  * @author Juraj
  */
 public class Zakaznik extends Osoba implements IIdentifikovatelny {
-    private static final long serialVersionUID = 2L;
-
     private final String id;                //id zakaznika
     private final MalySklad prijemTovaru;   //miestnost na prijem tovaru
     private final MalySklad vydajTovaru;    //miestnost na vydaj tovaru

@@ -1,24 +1,20 @@
 package sk.uniza.fri.sklad.pracaSoSuborom;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import sk.uniza.fri.sklad.Sklad;
 
 import java.io.IOException;
-import java.io.ObjectInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 /**
- * Trieda CitacSuboru sluzi k nacitaniu konfiguracie skladu zo suboru, v ktorom je serializovana.
+ * Trieda CitacSuboru sluzi k nacitaniu konfiguracie skladu z JSON suboru.
  * @author Juraj
  */
 public class CitacSuboru {
-    private static final DateTimeFormatter FORMAT_CASU = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
-
     private final Path subor;
+    private final ObjectMapper mapper;
 
     /**
      * Vytvori citac pracujuci s predvolenym suborom skladu.
@@ -33,11 +29,12 @@ public class CitacSuboru {
      */
     public CitacSuboru(Path subor) {
         this.subor = subor;
+        this.mapper = new ObjectMapper();
     }
 
     /**
      * Pokusi sa nacitat konfiguraciu skladu zo suboru. Ak subor neexistuje, vytvori novy sklad s pociatocnou
-     * konfiguraciou a ulozi ho. Ak je subor poskodeny, zazalohuje ho a vrati novy sklad.
+     * konfiguraciou a ulozi ho. Ak je subor necitatelny alebo neplatny, odstrani ho a vrati novy sklad.
      * @return nacitany alebo novy sklad
      */
     public Sklad nacitaj() {
@@ -46,26 +43,27 @@ public class CitacSuboru {
             new ZapisovacSuboru(this.subor).zapis(novySklad);
             return novySklad;
         }
-        try (ObjectInputStream vstup = new ObjectInputStream(Files.newInputStream(this.subor))) {
-            return (Sklad)vstup.readObject();
-        } catch (IOException | ClassNotFoundException e) {
-            System.err.println("Ulozeny sklad sa nepodarilo nacitat: " + e.getMessage());
-            this.zalohujPoskodenySubor();
-            System.err.println("Poskodeny subor bol zalohovany, spustam novy sklad.");
-            return new Sklad();
+        try {
+            SkladData data = this.mapper.readValue(this.subor.toFile(), SkladData.class);
+            return SkladMapper.naSklad(data);
+        } catch (IOException | PerzistenciaException e) {
+            System.err.println("Subor skladu sa nepodarilo nacitat: " + e.getMessage());
+            this.odstranNeplatnySubor();
+            System.err.println("Subor bol odstraneny, spustam novy sklad.");
+            Sklad novySklad = new Sklad();
+            new ZapisovacSuboru(this.subor).zapis(novySklad);
+            return novySklad;
         }
     }
 
     /**
-     * Presunie poskodeny subor do zalohy s casovou znamkou.
+     * Odstrani neplatny subor skladu.
      */
-    private void zalohujPoskodenySubor() {
-        String cas = LocalDateTime.now().format(FORMAT_CASU);
-        Path zaloha = this.subor.resolveSibling(this.subor.getFileName() + ".korumpovany-" + cas);
+    private void odstranNeplatnySubor() {
         try {
-            Files.move(this.subor, zaloha, StandardCopyOption.REPLACE_EXISTING);
+            Files.deleteIfExists(this.subor);
         } catch (IOException e) {
-            System.err.println("Zalohovanie poskodeneho suboru zlyhalo: " + e.getMessage());
+            System.err.println("Subor skladu sa nepodarilo odstranit: " + e.getMessage());
         }
     }
 }

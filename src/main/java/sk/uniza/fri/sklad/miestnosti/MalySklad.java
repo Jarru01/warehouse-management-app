@@ -7,8 +7,6 @@ import sk.uniza.fri.sklad.predmety.Regal;
  * @author Juraj
  */
 public class MalySklad extends Miestnost implements ISkladovaMiestnost {
-    private static final long serialVersionUID = 2L;
-
     private final Regal regal;  //regal na ukladanie tovaru
 
     /**

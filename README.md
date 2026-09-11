@@ -3,7 +3,7 @@
 A Java-based console application modeling a role-based warehouse management
 workflow. Built on strict Object-Oriented Programming principles, it features
 role-based terminal access, package-structured logic, storage capacity
-tracking, and state persistence via Java object serialization.
+tracking, and state persistence via a documented JSON save file.
 
 ## 🚀 Features
 
@@ -12,7 +12,7 @@ tracking, and state persistence via Java object serialization.
   - **Worker (`Pracovnik`)** — navigates storage rooms, adjusts inventory, handles goods inside racks.
   - **Customer (`Zakaznik`)** — deposits items and retrieves them by unique identifier.
 - **Storage Capacity Management** — large warehouses (`VelkySklad`) with expandable racks vs. small warehouses (`MalySklad`) with rigid fixed capacity ceilings.
-- **State Persistence** — the current state (rooms, items, employees, users) is serialized to `sklad.dat` after every action and restored on startup. Saves are written atomically and corrupt files are backed up automatically.
+- **State Persistence** — the current state (rooms, items, employees, users) is saved as JSON to `sklad.dat` after every action and restored on startup. Saves are written atomically and an unreadable save file is discarded in favor of a fresh state.
 - **Modular Architecture** — domain entities, interfaces, file handling, and console terminals are decoupled into functional packages.
 
 ## 📖 Domain Glossary
@@ -47,7 +47,7 @@ The code uses Slovak domain names. Quick reference:
 | `sklad.osoby` | `Osoba`, `Pracovnik`, `Riaditel`, `Zakaznik` | personnel and external actor models |
 | `sklad.predmety` | `Regal`, `Tovar` | racks and stored goods |
 | `sklad.terminaly` | `ITerminal`, `Vstup`, `TerminalPracovnika`, `TerminalRiaditela`, `TerminalZakaznika` | privilege-mapped console workflows, shared console input |
-| `sklad.pracaSoSuborom` | `CitacSuboru`, `ZapisovacSuboru` | save-file persistence: load, atomic write, corruption recovery |
+| `sklad.pracaSoSuborom` | `CitacSuboru`, `ZapisovacSuboru`, `SkladMapper`, `SkladData` and nested DTOs | documented JSON persistence: mapping, load, atomic write, invalid-file recovery |
 
 ## 🛠️ Build
 
@@ -86,13 +86,13 @@ java -jar build/libs/warehouse-management-system-1.0.0.jar
 
 ## 💾 Persistence
 
-On every change the application saves the warehouse state to a binary
-serialization file named `sklad.dat` next to the program and restores it
-automatically on startup. Saves are written to a temporary file first and then
-moved into place, so an interrupted save cannot destroy existing data. If the
-save file is unreadable, it is renamed to `sklad.dat.korumpovany-<timestamp>`
-and the system starts from a fresh state. Delete `sklad.dat` to reset the
-system manually.
+On every change the application saves the warehouse state as UTF-8 JSON to a
+file named `sklad.dat` next to the program and restores it automatically on
+startup. Saves are written to a temporary file first and then moved into place,
+so an interrupted save cannot destroy existing data. The format is documented
+in [`docs/format-suboru.md`](docs/format-suboru.md). If the save file is
+unreadable or uses an unsupported version, it is deleted and the system starts
+from a fresh state. Delete `sklad.dat` to reset the system manually.
 
 ## ℹ️ Notes
 

@@ -15,8 +15,6 @@ import sk.uniza.fri.sklad.predmety.Tovar;
  * @author Juraj
  */
 public class Pracovnik extends Osoba implements IIdentifikovatelny {
-    private static final long serialVersionUID = 2L;
-
     private final Sklad sklad;              //sklad v ktorom pracovnik pracuje
     private final String id;                //id pracovnika
     private Miestnost aktualnaMiestnost;    //miestnost v ktorej sa pracovnik nachadza
@@ -108,6 +106,16 @@ public class Pracovnik extends Osoba implements IIdentifikovatelny {
             this.aktualnaMiestnost.odoberPracovnika(this);
             this.aktualnaMiestnost = null;
         }
+    }
+
+    /**
+     * Obnovi stav pracovnika pri nacitani zo suboru. Urcene vyhradne pre perzistenciu.
+     * @param miestnost miestnost, v ktorej sa pracovnik nachadza
+     * @param drzanyTovar tovar, ktory pracovnik drzi, alebo null
+     */
+    public void obnovStav(Miestnost miestnost, Tovar drzanyTovar) {
+        this.premiestniDo(miestnost);
+        this.aktualnyTovar = drzanyTovar;
     }
 
     /**

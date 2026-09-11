@@ -11,7 +11,6 @@ import sk.uniza.fri.sklad.terminaly.TerminalRiaditela;
 import sk.uniza.fri.sklad.terminaly.TerminalZakaznika;
 import sk.uniza.fri.sklad.terminaly.Vstup;
 
-import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -21,10 +20,7 @@ import java.util.Map;
  * interakciu s pouzivatelom a obsahuje metodu na ulozenie konfiguracie skladu do suboru.
  * @author Juraj
  */
-@SuppressWarnings("serial")
-public class Sklad implements Serializable {
-    private static final long serialVersionUID = 2L;
-
+public class Sklad {
     public static final String PREDVOLENE_ID_RIADITELA = "123";
     public static final String MIESTNOST_SKLAD_TOVARU = "skladTovaru";
     public static final String MIESTNOST_PRIJEM_TOVARU = "prijemTovaru";
@@ -35,17 +31,44 @@ public class Sklad implements Serializable {
     private final Riaditel riaditelSkladu;                      //riaditel skladu
 
     /**
-     * Vytvori prazdny zoznam pracovnikov, naplni zoznam miestnosti s miestnostami skladu a vytvori riaditela.
+     * Vytvori prazdny zoznam pracovnikov, naplni zoznam miestnosti s predvolenymi miestnostami skladu a vytvori
+     * riaditela s predvolenymi udajmi.
      */
-    @SuppressWarnings("this-escape")
     public Sklad() {
+        this("Juraj", "Solensky", PREDVOLENE_ID_RIADITELA);
+    }
+
+    /**
+     * Vytvori sklad s predvolenymi miestnostami a riaditelom s udajmi z parametrov.
+     * @param menoRiaditela meno riaditela
+     * @param priezviskoRiaditela priezvisko riaditela
+     * @param idRiaditela id riaditela
+     */
+    public Sklad(String menoRiaditela, String priezviskoRiaditela, String idRiaditela) {
+        this(menoRiaditela, priezviskoRiaditela, idRiaditela, true);
+    }
+
+    /**
+     * Vytvori prazdny sklad bez miestnosti s riaditelom s udajmi z parametrov. Urcene na nacitanie zo suboru.
+     * @param menoRiaditela meno riaditela
+     * @param priezviskoRiaditela priezvisko riaditela
+     * @param idRiaditela id riaditela
+     * @return prazdny sklad
+     */
+    public static Sklad prazdny(String menoRiaditela, String priezviskoRiaditela, String idRiaditela) {
+        return new Sklad(menoRiaditela, priezviskoRiaditela, idRiaditela, false);
+    }
+
+    @SuppressWarnings("this-escape")
+    private Sklad(String menoRiaditela, String priezviskoRiaditela, String idRiaditela, boolean sPredvolenymiMiestnostami) {
         this.zoznamMiestnosti = new HashMap<>();
         this.zoznamPracovnikov = new HashMap<>();
-        this.riaditelSkladu = new Riaditel("Juraj", "Solensky", this, PREDVOLENE_ID_RIADITELA);
-
-        this.zoznamMiestnosti.put(MIESTNOST_SKLAD_TOVARU, new VelkySklad(MIESTNOST_SKLAD_TOVARU));
-        this.zoznamMiestnosti.put(MIESTNOST_PRIJEM_TOVARU, new MalySklad(MIESTNOST_PRIJEM_TOVARU));
-        this.zoznamMiestnosti.put(MIESTNOST_VYDAJ_TOVARU, new MalySklad(MIESTNOST_VYDAJ_TOVARU));
+        this.riaditelSkladu = new Riaditel(menoRiaditela, priezviskoRiaditela, this, idRiaditela);
+        if (sPredvolenymiMiestnostami) {
+            this.pridajMiestnost(new VelkySklad(MIESTNOST_SKLAD_TOVARU));
+            this.pridajMiestnost(new MalySklad(MIESTNOST_PRIJEM_TOVARU));
+            this.pridajMiestnost(new MalySklad(MIESTNOST_VYDAJ_TOVARU));
+        }
     }
 
     /**
@@ -150,15 +173,40 @@ public class Sklad implements Serializable {
     }
 
     /**
+     * Prida miestnost do skladu.
+     * @param miestnost miestnost na pridanie
+     * @return true ak bola miestnost pridana
+     */
+    public boolean pridajMiestnost(Miestnost miestnost) {
+        if (miestnost == null || this.zoznamMiestnosti.containsKey(miestnost.getPopisMiestnosti())) {
+            return false;
+        }
+        this.zoznamMiestnosti.put(miestnost.getPopisMiestnosti(), miestnost);
+        return true;
+    }
+
+    /**
+     * Zaregistruje pracovnika do zoznamu skladu bez umiestnenia do miestnosti. Urcene na nacitanie zo suboru.
+     * @param pracovnik pracovnik na registraciu
+     * @return true ak bol pracovnik zaregistrovany
+     */
+    public boolean registrujPracovnika(Pracovnik pracovnik) {
+        if (pracovnik == null || this.zoznamPracovnikov.containsKey(pracovnik.getId())) {
+            return false;
+        }
+        this.zoznamPracovnikov.put(pracovnik.getId(), pracovnik);
+        return true;
+    }
+
+    /**
      * Prida pracovnika do zoznamu skladu a umiestni ho do hlavneho skladu tovaru.
      * @param pracovnik pracovnik na pridanie
      * @return true ak bol pracovnik pridany
      */
     public boolean pridajPracovnika(Pracovnik pracovnik) {
-        if (pracovnik == null || this.zoznamPracovnikov.containsKey(pracovnik.getId())) {
+        if (!this.registrujPracovnika(pracovnik)) {
             return false;
         }
-        this.zoznamPracovnikov.put(pracovnik.getId(), pracovnik);
         pracovnik.premiestniDo(this.getSkladTovaru());
         return true;
     }

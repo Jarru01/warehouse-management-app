@@ -1,16 +1,11 @@
 package sk.uniza.fri.sklad.osoby;
 
-
-import java.io.Serializable;
-
 /**
  * Trieda Osoba reprezentuje fyzicku osobu s menom a priezviskom.
  * @author Juraj
  */
 
-public abstract class Osoba implements Serializable {
-    private static final long serialVersionUID = 2L;
-
+public abstract class Osoba {
     private final String meno;      //meno osoby
     private final String priezvisko;//priezvisko osoby
 

@@ -13,8 +13,6 @@ import java.util.Map;
  * @author Juraj
  */
 public class Riaditel extends Osoba implements IIdentifikovatelny {
-    private static final long serialVersionUID = 2L;
-
     private final Sklad sklad;   //sklad ktory riaditel spravuje
     private final String id;     //id riaditela
 

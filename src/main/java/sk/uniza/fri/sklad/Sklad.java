@@ -21,6 +21,7 @@ import java.util.Map;
  * interakciu s pouzivatelom a obsahuje metodu na ulozenie konfiguracie skladu do suboru.
  * @author Juraj
  */
+@SuppressWarnings("serial")
 public class Sklad implements Serializable {
     private static final long serialVersionUID = 2L;
 
@@ -36,6 +37,7 @@ public class Sklad implements Serializable {
     /**
      * Vytvori prazdny zoznam pracovnikov, naplni zoznam miestnosti s miestnostami skladu a vytvori riaditela.
      */
+    @SuppressWarnings("this-escape")
     public Sklad() {
         this.zoznamMiestnosti = new HashMap<>();
         this.zoznamPracovnikov = new HashMap<>();

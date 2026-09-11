@@ -28,6 +28,11 @@ dependencies {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+    options.compilerArgs.addAll(['-Xlint:all'])
+}
+
+tasks.named('javadoc') {
+    options.addBooleanOption('Xdoclint:all,-missing', true)
 }
 
 tasks.named('test') {

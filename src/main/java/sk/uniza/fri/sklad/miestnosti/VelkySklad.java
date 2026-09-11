@@ -10,6 +10,7 @@ import java.util.List;
  * VelkySklad je potomok Miestnoti, ktory obsahuje zoznam regalov s tovarom, ktory je mozne upravovat.
  * @author Juraj
  */
+@SuppressWarnings("serial")
 public class VelkySklad extends Miestnost implements ISkladovaMiestnost {
     private static final long serialVersionUID = 2L;
 

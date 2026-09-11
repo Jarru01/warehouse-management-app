@@ -11,6 +11,7 @@ import java.util.Map;
  * manipuluje.
  * @author Juraj
  */
+@SuppressWarnings("serial")
 public abstract class Miestnost implements Serializable {
     private static final long serialVersionUID = 2L;
 

@@ -24,14 +24,14 @@ public class Tovar implements IIdentifikovatelny, Serializable {
      * @param nazovTovaru nazov tovaru
      * @param vaha vaha tovaru
      * @param odosielatel odosielatel tovaru
-     * @param priejmca prijemca ktoremu je tovar adresovany
+     * @param prijemca prijemca ktoremu je tovar adresovany
      */
-    public Tovar(String id, String nazovTovaru, int vaha, Zakaznik odosielatel, Zakaznik priejmca) {
+    public Tovar(String id, String nazovTovaru, int vaha, Zakaznik odosielatel, Zakaznik prijemca) {
         this.id = id;
         this.nazovTovaru = nazovTovaru;
         this.vaha = vaha;
         this.odosielatel = odosielatel;
-        this.prijemca = priejmca;
+        this.prijemca = prijemca;
 
     }
 

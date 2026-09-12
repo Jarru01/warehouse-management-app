@@ -30,22 +30,43 @@ manages racks, the **worker** moves between rooms and handles goods, and the
 ## ✅ Requirements
 
 - JDK 21
-- Docker (for the PostgreSQL container)
+- Docker Desktop installed and running (provides the PostgreSQL container)
 
-## ▶️ Run
+## ▶️ Quick Start
 
-```bash
-docker compose up -d      # start PostgreSQL (database sklad)
-./gradlew bootRun         # start the application on http://localhost:8080
-```
+1. **Start Docker Desktop** and wait until it is running — the database container needs it.
+2. **Start PostgreSQL** from the project folder:
 
-On Windows use `gradlew.bat` instead of `./gradlew`. Open
-<http://localhost:8080> and pick a role.
+   ```bash
+   docker compose up -d
+   docker compose ps          # expect warehouse-db with status "Up (healthy)"
+   ```
 
-```bash
-docker compose down       # stop the database, keep data
-docker compose down -v    # stop the database and delete all data
-```
+3. **Start the application** — pick one:
+
+   ```bash
+   # Development mode (recommended while working on the code)
+   ./gradlew bootRun
+
+   # Or from the built jar
+   ./gradlew bootJar
+   java -jar build/libs/warehouse-management-app-2.0.0.jar
+   ```
+
+4. **Open <http://localhost:8080>** and log in (see [Login](#-login)).
+
+On Windows use `gradlew.bat` instead of `./gradlew`. Both `bootRun` and
+`java -jar` keep running until you stop them with `Ctrl+C` in the terminal.
+
+Stop and reset:
+
+| Command | Effect |
+|---|---|
+| `Ctrl+C` in the app terminal | Stops the application |
+| `docker compose down` | Stops the database and **keeps data** |
+| `docker compose down -v` | Stops the database and **deletes all data** (fresh start next run) |
+| `docker compose ps` | Shows container status |
+| `docker compose logs -f db` | Follows database logs |
 
 ## 🔑 Login
 
@@ -90,6 +111,19 @@ curl -X POST http://localhost:8080/api/riaditel/pracovnici \
   -d '{"id":"5","meno":"Peter","priezvisko":"Novak"}'
 ```
 
+## 🧰 Common Commands
+
+| Task | Command |
+|---|---|
+| Start database | `docker compose up -d` |
+| Stop database (keep data) | `docker compose down` |
+| Reset database | `docker compose down -v` |
+| Run app in development mode | `./gradlew bootRun` |
+| Build runnable jar | `./gradlew bootJar` |
+| Build and run all tests | `./gradlew build` |
+| Run tests only | `./gradlew test` |
+| Generate API documentation | `./gradlew javadoc` |
+
 ## 🛠️ Build & Test
 
 ```bash
@@ -98,6 +132,18 @@ curl -X POST http://localhost:8080/api/riaditel/pracovnici \
 ./gradlew bootJar    # runnable jar: build/libs/warehouse-management-app-2.0.0.jar
 ./gradlew javadoc    # API documentation
 ```
+
+The test suite does not need the database from Quick Start: Testcontainers
+starts its own disposable PostgreSQL instance.
+
+## ❗ Troubleshooting
+
+- **`Connection refused` or `"database":"chyba"` from `/api/status`** — Docker Desktop is not running or the container is not up yet. Start Docker Desktop, then run `docker compose up -d`.
+- **Container reported as `starting` or `unhealthy`** — first start takes a few seconds; check `docker compose logs db` if it persists.
+- **Port 8080 already in use** — another process or an older app instance is using it. Stop it or change `server.port` in `src/main/resources/application.yml`.
+- **Port 5432 already in use** — a locally installed PostgreSQL is running. Stop it or change the published port in `compose.yaml`.
+- **Stale or broken data** — reset with `docker compose down -v` followed by `docker compose up -d`.
+- **`./gradlew` not recognized on Windows** — use `.\gradlew.bat`.
 
 ## 📁 Architecture
 

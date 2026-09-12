@@ -1,6 +1,6 @@
 # Warehouse Management System
 
-[![build](https://github.com/Jarru01/warehouse-management-system/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/Jarru01/warehouse-management-system/actions/workflows/build.yml)
+[![build](https://github.com/Jarru01/warehouse-management-web/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/Jarru01/warehouse-management-web/actions/workflows/build.yml)
 
 A Spring Boot web application for role-based warehouse management. Three roles
 use the system through server-rendered pages, while a documented REST API

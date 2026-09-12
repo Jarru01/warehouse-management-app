@@ -2,345 +2,159 @@
 'https://plantuml.com/class-diagram
 skinparam classAttributeIconSize 0
 
-class Main {
---
-+{static}main(args: String[]): void
+package "warehouse.domain" {
+  abstract class Miestnost <<Entity>> {
+  -kluc: String
+  --
+  +getKluc(): String
+  }
+
+  class VelkySklad <<Entity>>
+  class MalySklad <<Entity>>
+
+  class Regal <<Entity>> {
+  -id: Long
+  -kapacita: int
+  --
+  +getId(): Long
+  +getMiestnost(): Miestnost
+  +getKapacita(): int
+  }
+
+  class ZakaznikInfo <<Embeddable>> {
+  -id: String
+  -meno: String
+  -priezvisko: String
+  }
+
+  class Tovar <<Entity>> {
+  -id: String
+  -nazov: String
+  -vaha: int
+  -odosielatel: ZakaznikInfo
+  -prijemca: ZakaznikInfo
+  -regal: Regal
+  -slot: Integer
+  --
+  +ulozDoRegalu(regal: Regal, slot: int): void
+  +vyberZRegalu(): void
+  }
+
+  class Pracovnik <<Entity>> {
+  -id: String
+  -meno: String
+  -priezvisko: String
+  -miestnost: Miestnost
+  -drzanyTovar: Tovar
+  --
+  +premiestniDo(miestnost: Miestnost): void
+  +uchop(tovar: Tovar): void
+  +poloz(): void
+  +drziTovar(): boolean
+  }
+
+  class Riaditel <<Entity>> {
+  -id: String
+  -meno: String
+  -priezvisko: String
+  }
 }
 
-interface IIdentifikovatelny {
---
-+getId(): String
+package "warehouse.repository" {
+  interface MiestnostRepository
+  interface RegalRepository
+  interface TovarRepository
+  interface PracovnikRepository
+  interface RiaditelRepository
 }
 
-class Validacia <<utility>> {
---
-+{static}jeCislo(vstup: String): boolean
-+{static}jeText(vstup: String): boolean
-+{static}jeNazov(vstup: String): boolean
-+{static}jeKladneCislo(vstup: String): boolean
+package "warehouse.service" {
+  class SkladService {
+  +miestnosti(): List<Miestnost>
+  +miestnost(kluc: String): Miestnost
+  +pracovnici(): List<Pracovnik>
+  +pracovnik(id: String): Pracovnik
+  +riaditel(id: String): Riaditel
+  +tovar(id: String): Tovar
+  +regale(kluc: String): List<Regal>
+  +tovarVRegali(regalId: Long): List<Tovar>
+  +tovarPreZakaznika(zakaznikId: String): List<Tovar>
+  +prijmiPracovnika(id: String, meno: String, priezvisko: String): Pracovnik
+  +vylucPracovnika(id: String): void
+  +pridajRegal(kapacita: int): Regal
+  +odstranRegal(regalId: Long): void
+  +presunPracovnika(pracovnikId: String, kluc: String): Pracovnik
+  +zoberTovar(pracovnikId: String, tovarId: String): void
+  +ulozTovar(pracovnikId: String): void
+  +vytvorTovar(id: String, nazov: String, vaha: int, odosielatel: ZakaznikInfo, prijemca: ZakaznikInfo): Tovar
+  +vyzdvihniTovar(tovarId: String, zakaznikId: String): void
+  }
+
+  class NenajdenaEntitaException
+  class NeplatnaOperaciaException
 }
 
-class Sklad {
--zoznamMiestnosti: Map<String, Miestnost>
--zoznamPracovnikov: Map<String, Pracovnik>
--riaditelSkladu: Riaditel
---
-+{static}new(): Sklad
-+{static}prazdny(menoRiaditela: String, priezviskoRiaditela: String, idRiaditela: String): Sklad
-+spusti(vstup: Vstup): void
-+vyberPouzivatela(vstup: Vstup): boolean
-+getZoznamMiestnosti(): Map<String,Miestnost>
-+getZoznamPracovnikov(): Map<String,Pracovnik>
-+getRiaditelSkladu(): Riaditel
-+getMiestnost(kluc: String): Miestnost
-+getSkladTovaru(): VelkySklad
-+getPrijemTovaru(): MalySklad
-+getVydajTovaru(): MalySklad
-+pridajMiestnost(miestnost: Miestnost): boolean
-+registrujPracovnika(pracovnik: Pracovnik): boolean
-+pridajPracovnika(pracovnik: Pracovnik): boolean
-+odoberPracovnika(id: String): Pracovnik
-+ulozZmeny(): void
+package "warehouse.web.api" {
+  class RiaditelApiController
+  class PracovnikApiController
+  class ZakaznikApiController
+  class MiestnostiApiController
+  class StatusController
+  class DtoMapper
+  class GlobalExceptionHandler
 }
 
-class VytvaracTovaru {
--sklad: Sklad
--vstup: Vstup
---
-+{static}new(sklad: Sklad, vstup: Vstup): VytvaracTovaru
-+vytvorTovar(odosielatel: Zakaznik): Tovar
+package "warehouse.web.view" {
+  class LoginController
+  class RiaditelViewController
+  class PracovnikViewController
+  class ZakaznikViewController
+  class RolaInterceptor
+  class WebConfig
 }
 
-interface ISkladovaMiestnost {
---
-+getRegal(): Regal
-+vypisZoznamuRegalov(): String
+package "warehouse.config" {
+  class DataInitializer
+  class WarehouseApplication
 }
 
-abstract class Miestnost {
--popisMiestnosti: String
--zoznamPracovnikov: Map<String, Pracovnik>
---
-+{static}new(popisMiestnosti: String): Miestnost
-+getPopisMiestnosti(): String
-+vypisZoznamuPracovnikov(): String
-+pridajPracovnika(pracovnik: Pracovnik): boolean
-+odoberPracovnika(pracovnik: Pracovnik): boolean
-}
+Miestnost <|-- VelkySklad
+Miestnost <|-- MalySklad
+MalySklad "1" -- "1" Regal : regal
+VelkySklad "1" -- "*" Regal : regale
+Regal "1" -- "*" Tovar : ulozeny
+Tovar ..> ZakaznikInfo : odosielatel
+Tovar ..> ZakaznikInfo : prijemca
+Pracovnik "0..1" --> "1" Miestnost : nachadza sa
+Pracovnik "0..1" --> "0..1" Tovar : drzi
 
-class MalySklad extends Miestnost implements ISkladovaMiestnost {
--regal: Regal
---
-+{static}new(popisMiestnosti: String): MalySklad
-+getRegal(): Regal
-+vypisZoznamuRegalov(): String
-}
+SkladService --> MiestnostRepository
+SkladService --> RegalRepository
+SkladService --> TovarRepository
+SkladService --> PracovnikRepository
+SkladService --> RiaditelRepository
+SkladService ..> NenajdenaEntitaException
+SkladService ..> NeplatnaOperaciaException
 
-class VelkySklad extends Miestnost implements ISkladovaMiestnost {
--zoznamRegalov: List<Regal>
---
-+{static}new(popisMiestnosti: String): VelkySklad
-+getRegal(): Regal
-+getRegal(index: int): Regal
-+vypisZoznamuRegalov(): String
-+pridajRegal(kapacita: int): boolean
-+odstranRegal(index: int): boolean
-+getZoznamRegalov(): List<Regal>
-}
+RiaditelApiController --> SkladService
+PracovnikApiController --> SkladService
+ZakaznikApiController --> SkladService
+MiestnostiApiController --> SkladService
+RiaditelApiController --> DtoMapper
+PracovnikApiController --> DtoMapper
+ZakaznikApiController --> DtoMapper
+MiestnostiApiController --> DtoMapper
+GlobalExceptionHandler ..> NenajdenaEntitaException
+GlobalExceptionHandler ..> NeplatnaOperaciaException
 
-abstract class Osoba {
--meno: String
--priezvisko: String
---
-+{static}new(meno: String, priezvisko: String): Osoba
-+getMeno(): String
-+getPriezvisko(): String
-+toString(): String
-}
+LoginController --> SkladService
+RiaditelViewController --> SkladService
+PracovnikViewController --> SkladService
+ZakaznikViewController --> SkladService
+WebConfig --> RolaInterceptor
 
-class Pracovnik extends Osoba implements IIdentifikovatelny {
--sklad: Sklad
--id: String
--aktualnaMiestnost: Miestnost
--aktualnyTovar: Tovar
---
-+{static}new(meno: String, priezvisko: String, sklad: Sklad, id: String): Pracovnik
-+getId(): String
-+getAktualnaMiestnost(): Miestnost
-+getAktualnyTovar(): Tovar
-+mamTovar(): boolean
-+chodDoMiestnosti(kluc: String): boolean
-+premiestniDo(miestnost: Miestnost): void
-+opustiMiestnost(): void
-+obnovStav(miestnost: Miestnost, drzanyTovar: Tovar): void
-+zoberTovar(id: String): boolean
-+zoberTovar(id: String, indexRegalu: int): boolean
-+ulozTovar(): boolean
-+zoznamRegalovAktualnejMiestnosti(): String
-+toString(): String
-}
-
-class Riaditel extends Osoba implements IIdentifikovatelny {
--sklad: Sklad
--id: String
---
-+{static}new(meno: String, priezvisko: String, sklad: Sklad, id: String): Riaditel
-+getId(): String
-+getZoznamPracovnikov(): Map<String,Pracovnik>
-+vypisZoznamPracovnikov(): String
-+vypisTovar(): String
-+pridajRegal(kapacita: int): boolean
-+odstranRegal(index: int): boolean
-+prijmiPracovnika(pracovnik: Pracovnik): boolean
-+vylucPracovnika(id: String): boolean
-}
-
-class Zakaznik extends Osoba implements IIdentifikovatelny {
--id: String
--prijemTovaru: MalySklad
--vydajTovaru: MalySklad
---
-+{static}new(id: String, meno: String, priezvisko: String, prijemTovaru: MalySklad, vydajTovaru: MalySklad): Zakaznik
-+getId(): String
-+ulozTovar(tovar: Tovar): boolean
-+vyzdvihniTovar(tovar: Tovar): boolean
-}
-
-class CitacSuboru {
--subor: Path
---
-+{static}new(): CitacSuboru
-+{static}new(subor: Path): CitacSuboru
-+nacitaj(): Sklad
-}
-
-class ZapisovacSuboru {
-+{static}PREDVOLENY_SUBOR: String
--subor: Path
---
-+{static}new(): ZapisovacSuboru
-+{static}new(subor: Path): ZapisovacSuboru
-+zapis(sklad: Sklad): void
-}
-
-class SkladMapper <<utility>> {
-+{static}VERZIA: int
-+{static}naData(sklad: Sklad): SkladData
-+{static}naSklad(data: SkladData): Sklad
-}
-
-class PerzistenciaException
-
-class SkladData <<record>> {
-+verzia: int
-+riaditel: OsobaData
-+miestnosti: List<MiestnostData>
-+tovar: List<TovarData>
-+pracovnici: List<PracovnikData>
-}
-
-class OsobaData <<record>> {
-+id: String
-+meno: String
-+priezvisko: String
-}
-
-class MiestnostData <<record>> {
-+kluc: String
-+typ: String
-+regale: List<RegalData>
-}
-
-class RegalData <<record>> {
-+kapacita: int
-+tovar: List<String>
-}
-
-class TovarData <<record>> {
-+id: String
-+nazov: String
-+vaha: int
-+odosielatel: OsobaData
-+prijemca: OsobaData
-}
-
-class PracovnikData <<record>> {
-+id: String
-+meno: String
-+priezvisko: String
-+miestnost: String
-+drzanyTovar: String
-}
-
-class Regal {
--zoznamTovaru: Tovar[]
---
-+{static}new(kapacita: int): Regal
-+getKapacita(): int
-+getZoznamTovaru(): Tovar[]
-+getTovar(id: String): Tovar
-+ulozTovar(tovar: Tovar): boolean
-+odoberTovar(id: String): boolean
-+maVolneMiesto(): boolean
-+jePrazdny(): boolean
-+toString(): String
-}
-
-class Tovar implements IIdentifikovatelny {
--id: String
--nazovTovaru: String
--vaha: int
--odosielatel: Zakaznik
--prijemca: Zakaznik
---
-+{static}new(id: String, nazovTovaru: String, vaha: int, odosielatel: Zakaznik, prijemca: Zakaznik): Tovar
-+getId(): String
-+getOdosielatel(): Zakaznik
-+getPrijemca(): Zakaznik
-+getNazovTovaru(): String
-+getVaha(): int
-+toString(): String
-}
-
-interface ITerminal {
---
-+nacitajVstup(): String
-+spustiTerminal(): void
-+zatvorTerminal(): void
-+obsluzMenu(): void
-}
-
-class Vstup {
--scanner: Scanner
---
-+{static}new(scanner: Scanner): Vstup
-+nacitaj(): String
-}
-
-class TerminalPracovnika implements ITerminal {
--sklad: Sklad
--vstup: Vstup
--aktualnyPracovnik: Pracovnik
--pocetPokusov: int
--aktivny: boolean
---
-+{static}new(sklad: Sklad, vstup: Vstup): TerminalPracovnika
-+nacitajVstup(): String
-+spustiTerminal(): void
-+zatvorTerminal(): void
-+obsluzMenu(): void
-}
-
-class TerminalRiaditela implements ITerminal {
--sklad: Sklad
--vstup: Vstup
--riaditel: Riaditel
--pocetPokusov: int
--aktivny: boolean
---
-+{static}new(sklad: Sklad, vstup: Vstup): TerminalRiaditela
-+nacitajVstup(): String
-+spustiTerminal(): void
-+zatvorTerminal(): void
-+obsluzMenu(): void
-}
-
-class TerminalZakaznika implements ITerminal {
--sklad: Sklad
--vstup: Vstup
--zakaznik: Zakaznik
--aktivny: boolean
---
-+{static}new(sklad: Sklad, vstup: Vstup): TerminalZakaznika
-+nacitajVstup(): String
-+spustiTerminal(): void
-+zatvorTerminal(): void
-+obsluzMenu(): void
-}
-
-Main --> Sklad
-Main --> CitacSuboru
-Main --> Vstup
-
-Sklad o-- Miestnost
-Sklad o-- Pracovnik
-Sklad --> Riaditel
-Sklad ..> ZapisovacSuboru
-
-CitacSuboru --> SkladMapper
-ZapisovacSuboru --> SkladMapper
-SkladMapper --> SkladData
-SkladData o-- OsobaData
-SkladData o-- MiestnostData
-SkladData o-- TovarData
-SkladData o-- PracovnikData
-MiestnostData o-- RegalData
-
-MalySklad *-- Regal
-VelkySklad *-- Regal
-Regal o-- Tovar
-
-Zakaznik --> MalySklad
-Tovar --> Zakaznik
-Pracovnik --> Sklad
-Pracovnik --> Miestnost
-Pracovnik --> Tovar
-Riaditel --> Sklad
-
-VytvaracTovaru --> Sklad
-VytvaracTovaru ..> Tovar
-TerminalZakaznika --> VytvaracTovaru
-
-TerminalPracovnika ..|> ITerminal
-TerminalRiaditela ..|> ITerminal
-TerminalZakaznika ..|> ITerminal
-TerminalPracovnika --> Vstup
-TerminalRiaditela --> Vstup
-TerminalZakaznika --> Vstup
-
-Tovar ..|> IIdentifikovatelny
-Pracovnik ..|> IIdentifikovatelny
-Riaditel ..|> IIdentifikovatelny
-Zakaznik ..|> IIdentifikovatelny
+DataInitializer --> MiestnostRepository
+DataInitializer --> RegalRepository
+DataInitializer --> RiaditelRepository
 
 @enduml

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="sk" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Sklad - pracovnik</title>
+    <link rel="stylesheet" th:href="@{/style.css}">
+</head>
+<body>
+<header>
+    <h1 th:text="'Pracovnik ' + ${pracovnik.meno} + ' ' + ${pracovnik.priezvisko}"></h1>
+    <form method="post" th:action="@{/odhlasenie}">
+        <button type="submit">Odhlasit</button>
+    </form>
+</header>
+<main>
+    <p class="sprava" th:if="${sprava}" th:text="${sprava}"></p>
+    <p class="chyba" th:if="${chyba}" th:text="${chyba}"></p>
+
+    <section>
+        <h2>Presun medzi miestnostami</h2>
+        <p>Aktualna miestnost: <strong th:text="${pracovnik.miestnost}"></strong></p>
+        <form method="post" th:action="@{/pracovnik/presun}">
+            <select name="miestnost">
+                <option th:each="miestnost : ${miestnosti}" th:value="${miestnost.kluc}" th:text="${miestnost.kluc}"></option>
+            </select>
+            <button type="submit">Presunut</button>
+        </form>
+    </section>
+
+    <section th:if="${drzanyTovar != null}">
+        <h2>Drzany tovar</h2>
+        <p th:text="'ID ' + ${drzanyTovar.id} + ' - ' + ${drzanyTovar.nazov}"></p>
+        <form method="post" th:action="@{/pracovnik/uloz}">
+            <button type="submit">Ulozit do regalu</button>
+        </form>
+    </section>
+
+    <section>
+        <h2>Regale a tovar v miestnosti</h2>
+        <p th:if="${regale.isEmpty()}">V miestnosti nie su regale.</p>
+        <div class="regal" th:each="regal : ${regale}">
+            <h3 th:text="'Regal ' + ${regal.id} + ' (kapacita ' + ${regal.kapacita} + ')'"></h3>
+            <ul>
+                <li th:each="tovar : ${regal.tovar}">
+                    <span th:text="'ID ' + ${tovar.id} + ' - ' + ${tovar.nazov} + ' (slot ' + ${tovar.slot} + ')'"></span>
+                    <form method="post" th:action="@{/pracovnik/zober}" class="inline">
+                        <input type="hidden" name="tovarId" th:value="${tovar.id}">
+                        <button type="submit">Zobrat</button>
+                    </form>
+                </li>
+                <li th:if="${regal.tovar.isEmpty()}">Prazdny regal</li>
+            </ul>
+        </div>
+    </section>
+</main>
+</body>
+</html>

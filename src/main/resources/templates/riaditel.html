@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="sk" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Sklad - riaditel</title>
+    <link rel="stylesheet" th:href="@{/style.css}">
+</head>
+<body>
+<header>
+    <h1>Riaditel</h1>
+    <form method="post" th:action="@{/odhlasenie}">
+        <button type="submit">Odhlasit</button>
+    </form>
+</header>
+<main>
+    <p class="sprava" th:if="${sprava}" th:text="${sprava}"></p>
+    <p class="chyba" th:if="${chyba}" th:text="${chyba}"></p>
+
+    <section>
+        <h2>Prijatie pracovnika</h2>
+        <form method="post" th:action="@{/riaditel/pracovnici}">
+            <label>ID <input type="text" name="id" required></label>
+            <label>Meno <input type="text" name="meno" required></label>
+            <label>Priezvisko <input type="text" name="priezvisko" required></label>
+            <button type="submit">Prijat</button>
+        </form>
+    </section>
+
+    <section>
+        <h2>Pracovnici</h2>
+        <p th:if="${pracovnici.isEmpty()}">Sklad nema pracovnikov.</p>
+        <table th:if="${!pracovnici.isEmpty()}">
+            <tr>
+                <th>ID</th>
+                <th>Meno</th>
+                <th>Priezvisko</th>
+                <th>Miestnost</th>
+                <th>Drzany tovar</th>
+                <th></th>
+            </tr>
+            <tr th:each="pracovnik : ${pracovnici}">
+                <td th:text="${pracovnik.id}"></td>
+                <td th:text="${pracovnik.meno}"></td>
+                <td th:text="${pracovnik.priezvisko}"></td>
+                <td th:text="${pracovnik.miestnost}"></td>
+                <td th:text="${pracovnik.drzanyTovar}"></td>
+                <td>
+                    <form method="post" th:action="@{'/riaditel/pracovnici/' + ${pracovnik.id} + '/vylucenie'}">
+                        <button type="submit">Vylucit</button>
+                    </form>
+                </td>
+            </tr>
+        </table>
+    </section>
+
+    <section>
+        <h2>Pridanie regalu do hlavneho skladu</h2>
+        <form method="post" th:action="@{/riaditel/regale}">
+            <label>Kapacita <input type="number" name="kapacita" min="1" max="20" required></label>
+            <button type="submit">Pridat</button>
+        </form>
+    </section>
+
+    <section th:each="miestnost : ${miestnosti}">
+        <h2 th:text="${miestnost.kluc} + ' (' + ${miestnost.typ} + ')'"></h2>
+        <p th:if="${regale.get(miestnost.kluc).isEmpty()}">Miestnost nema regale.</p>
+        <div class="regal" th:each="regal : ${regale.get(miestnost.kluc)}">
+            <h3 th:text="'Regal ' + ${regal.id} + ' (kapacita ' + ${regal.kapacita} + ')'"></h3>
+            <ul>
+                <li th:each="tovar : ${regal.tovar}"
+                    th:text="'ID ' + ${tovar.id} + ' - ' + ${tovar.nazov} + ' (' + ${tovar.vaha} + ' g), slot ' + ${tovar.slot}"></li>
+                <li th:if="${regal.tovar.isEmpty()}">Prazdny regal</li>
+            </ul>
+            <form method="post" th:action="@{'/riaditel/regale/' + ${regal.id} + '/odstranenie'}">
+                <button type="submit">Odstranit regal</button>
+            </form>
+        </div>
+    </section>
+</main>
+</body>
+</html>

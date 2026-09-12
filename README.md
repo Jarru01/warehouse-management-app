@@ -1,5 +1,7 @@
 # Warehouse Management System
 
+[![build](https://github.com/Jarru01/warehouse-management-system/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/Jarru01/warehouse-management-system/actions/workflows/build.yml)
+
 A Java-based console application modeling a role-based warehouse management
 workflow. Built on strict Object-Oriented Programming principles, it features
 role-based terminal access, package-structured logic, storage capacity

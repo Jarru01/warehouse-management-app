@@ -2,102 +2,123 @@
 
 [![build](https://github.com/Jarru01/warehouse-management-system/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/Jarru01/warehouse-management-system/actions/workflows/build.yml)
 
-A Java-based console application modeling a role-based warehouse management
-workflow. Built on strict Object-Oriented Programming principles, it features
-role-based terminal access, package-structured logic, storage capacity
-tracking, and state persistence via a documented JSON save file.
+A Spring Boot web application for role-based warehouse management. Three roles
+use the system through server-rendered pages, while a documented REST API
+exposes the same operations: the **director** hires and dismisses workers and
+manages racks, the **worker** moves between rooms and handles goods, and the
+**customer** deposits items and later picks them up.
 
 ## 🚀 Features
 
-- **Role-Based Access Control** — distinct terminal interfaces and actions for three system actors:
-  - **Director (`Riaditel`)** — HR tasks: hiring and dismissing warehouse workers, managing racks.
-  - **Worker (`Pracovnik`)** — navigates storage rooms, adjusts inventory, handles goods inside racks.
-  - **Customer (`Zakaznik`)** — deposits items and retrieves them by unique identifier.
-- **Storage Capacity Management** — large warehouses (`VelkySklad`) with expandable racks vs. small warehouses (`MalySklad`) with rigid fixed capacity ceilings.
-- **State Persistence** — the current state (rooms, items, employees, users) is saved as JSON to `sklad.dat` after every action and restored on startup. Saves are written atomically and an unreadable save file is discarded in favor of a fresh state.
-- **Modular Architecture** — domain entities, interfaces, file handling, and console terminals are decoupled into functional packages.
+- **Role-based areas** — session login for director, worker and customer, with URL-pattern access control.
+- **REST API** — versionless JSON endpoints under `/api` with request DTOs, Bean Validation and RFC 9457 `ProblemDetail` errors.
+- **Warehouse rules** — racks with fixed capacity and numbered slots, hands-full workers, room-bound picking, recipient-checked pickup, safe dismissal of workers holding goods.
+- **PostgreSQL persistence** — Spring Data JPA entities and repositories, seeded with a director and three rooms on first start.
+- **Tests** — domain services, repositories and both web layers covered by integration tests running against a real PostgreSQL via Testcontainers.
 
-## 📖 Domain Glossary
+## 🧱 Tech Stack
 
-The code uses Slovak domain names. Quick reference:
-
-| Identifier | Meaning |
+| Component | Choice |
 |---|---|
-| `Sklad` | warehouse |
-| `miestnosti` | rooms |
-| `Regal` | storage rack |
-| `Tovar` | goods / item |
-| `osoby` | people |
-| `terminaly` | interactive console terminals |
-| `pracaSoSuborom` | file handling |
+| Runtime | Java 21 |
+| Framework | Spring Boot 4.1 (Spring MVC, Spring Data JPA) |
+| View layer | Thymeleaf |
+| Database | PostgreSQL 17 |
+| Build | Gradle 9 (wrapper included) |
+| Tests | JUnit 5, MockMvc, Testcontainers |
 
-## 🔑 Login
+## ✅ Requirements
 
-| Actor | Identification |
-|---|---|
-| Director (`Riaditel`) | ID `123` (default director defined in `Sklad`) |
-| Worker (`Pracovnik`) | Any ID created by the director; three attempts allowed |
-| Customer (`Zakaznik`) | ID, first name and last name; enter `ukonci` to return to the main menu |
-
-## 📁 Architecture & Packages
-
-| Package | Key components | Responsibility |
-|---|---|---|
-| *(root)* | `Main` | bootstrap, configuration loading, login menu |
-| `sklad` | `Sklad`, `IIdentifikovatelny`, `VytvaracTovaru`, `Validacia` | central warehouse state, ID schema, console item creation, input validation |
-| `sklad.miestnosti` | `ISkladovaMiestnost`, `Miestnost`, `VelkySklad`, `MalySklad` | room layouts, employee directories, capacity rules |
-| `sklad.osoby` | `Osoba`, `Pracovnik`, `Riaditel`, `Zakaznik` | personnel and external actor models |
-| `sklad.predmety` | `Regal`, `Tovar` | racks and stored goods |
-| `sklad.terminaly` | `ITerminal`, `Vstup`, `TerminalPracovnika`, `TerminalRiaditela`, `TerminalZakaznika` | privilege-mapped console workflows, shared console input |
-| `sklad.pracaSoSuborom` | `CitacSuboru`, `ZapisovacSuboru`, `SkladMapper`, `SkladData` and nested DTOs | documented JSON persistence: mapping, load, atomic write, invalid-file recovery |
-
-## 🛠️ Build
-
-Requires **JDK 21** — the Gradle build targets a Java 21 toolchain.
-
-```bash
-./gradlew build        # compile and run tests
-./gradlew run          # start the application
-./gradlew jar          # build a runnable jar
-./gradlew javadoc      # generate API documentation
-```
-
-On Windows use `gradlew.bat` instead of `./gradlew`. The runnable jar is
-written to `build/libs/warehouse-management-system-1.0.0.jar`.
-
-Alternatively, open the project in IntelliJ IDEA as a Gradle project and run
-`warehouse.Main` directly.
-
-## ✅ Tests
-
-```bash
-./gradlew test         # run the JUnit 5 test suite
-```
-
-The suite covers domain rules (racks, rooms, workers, picking/placing
-goods), validation, role terminals, the item creator, and persistence
-round-trips including corruption recovery.
+- JDK 21
+- Docker (for the PostgreSQL container)
 
 ## ▶️ Run
 
 ```bash
-./gradlew run
-# or
-java -jar build/libs/warehouse-management-system-1.0.0.jar
+docker compose up -d      # start PostgreSQL (database sklad)
+./gradlew bootRun         # start the application on http://localhost:8080
 ```
 
-## 💾 Persistence
+On Windows use `gradlew.bat` instead of `./gradlew`. Open
+<http://localhost:8080> and pick a role.
 
-On every change the application saves the warehouse state as UTF-8 JSON to a
-file named `sklad.dat` next to the program and restores it automatically on
-startup. Saves are written to a temporary file first and then moved into place,
-so an interrupted save cannot destroy existing data. The format is documented
-in [`docs/format-suboru.md`](docs/format-suboru.md). If the save file is
-unreadable or uses an unsupported version, it is deleted and the system starts
-from a fresh state. Delete `sklad.dat` to reset the system manually.
+```bash
+docker compose down       # stop the database, keep data
+docker compose down -v    # stop the database and delete all data
+```
 
-## ℹ️ Notes
+## 🔑 Login
 
-`src/` is the single source of truth. Build output, generated documentation,
-and save files are not committed; generate API documentation with
-`./gradlew javadoc`.
+| Role | Credentials |
+|---|---|
+| Director (`Riaditel`) | ID `123` (seeded on first start) |
+| Worker (`Pracovnik`) | ID created by the director |
+| Customer (`Zakaznik`) | ID, first name and last name (identity is asserted, no password) |
+
+Session login is intentionally simple for this project; Spring Security with
+passwords and CSRF protection is a possible future step.
+
+## 🔌 REST API
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/status` | Application and database status |
+| GET | `/api/miestnosti` | List rooms |
+| GET | `/api/miestnosti/{kluc}/regale` | Racks and their items in a room |
+| GET | `/api/riaditel/{id}` | Director profile |
+| GET | `/api/riaditel/pracovnici` | List workers |
+| POST | `/api/riaditel/pracovnici` | Hire a worker (`id`, `meno`, `priezvisko`) |
+| DELETE | `/api/riaditel/pracovnici/{id}` | Dismiss a worker |
+| POST | `/api/riaditel/regale` | Add a rack to the main warehouse (`kapacita`) |
+| DELETE | `/api/riaditel/regale/{id}` | Remove an empty rack |
+| GET | `/api/pracovnik/{id}` | Worker state (room, held item) |
+| POST | `/api/pracovnik/{id}/presun` | Move worker to a room (`miestnost`) |
+| POST | `/api/pracovnik/{id}/zober` | Pick an item from the current room (`tovarId`) |
+| POST | `/api/pracovnik/{id}/uloz` | Store the held item into a free slot |
+| POST | `/api/zakaznik/tovar` | Deposit an item (`id`, `nazov`, `vaha`, `odosielatel`, `prijemca`) |
+| POST | `/api/zakaznik/{zakaznikId}/vyzdvihnutie/{tovarId}` | Pick up an item ready for release |
+
+Errors use `ProblemDetail`: `400` for invalid input, `404` for unknown
+entities, `409` for state conflicts (duplicate ID, full rack, hands full,
+wrong room, wrong recipient).
+
+Example:
+
+```bash
+curl -X POST http://localhost:8080/api/riaditel/pracovnici \
+  -H "Content-Type: application/json" \
+  -d '{"id":"5","meno":"Peter","priezvisko":"Novak"}'
+```
+
+## 🛠️ Build & Test
+
+```bash
+./gradlew build      # compile, run all tests, build the jar
+./gradlew test       # tests only (Testcontainers starts PostgreSQL automatically)
+./gradlew bootJar    # runnable jar: build/libs/warehouse-management-system-2.0.0.jar
+./gradlew javadoc    # API documentation
+```
+
+## 📁 Architecture
+
+| Package | Responsibility |
+|---|---|
+| `warehouse.domain` | JPA entities with the warehouse model (`Miestnost`/`VelkySklad`/`MalySklad`, `Regal`, `Tovar`, `Pracovnik`, `Riaditel`, `ZakaznikInfo`) |
+| `warehouse.repository` | Spring Data JPA repositories with fetch-join queries for read models |
+| `warehouse.service` | `SkladService` — all transactional operations and business rules |
+| `warehouse.web.api` | REST controllers, DTOs, mapper and the `ProblemDetail` exception handler |
+| `warehouse.web.view` | Thymeleaf controllers, session login and role interceptors |
+| `warehouse.config` | Seed data (`DataInitializer`) |
+
+The class diagram is in [`docs/uml.puml`](docs/uml.puml).
+
+## ⚙️ Configuration
+
+`src/main/resources/application.yml` holds the datasource (default
+`jdbc:postgresql://localhost:5432/sklad`, user and password `warehouse`),
+Hibernate schema handling (`ddl-auto: update`) and the server port (`8080`).
+Every property can be overridden with environment variables, for example
+`SPRING_DATASOURCE_URL` or `SERVER_PORT`.
+
+Development credentials are placeholders for local use; do not reuse them in
+other environments. Database migrations (Flyway) are a future step.

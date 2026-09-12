@@ -1,0 +1,35 @@
+{
+  "verzia" : 1,
+  "riaditel" : {
+    "id" : "123",
+    "meno" : "Juraj",
+    "priezvisko" : "Solensky"
+  },
+  "miestnosti" : [ {
+    "kluc" : "prijemTovaru",
+    "typ" : "maly",
+    "regale" : [ {
+      "kapacita" : 5,
+      "tovar" : [ ]
+    } ]
+  }, {
+    "kluc" : "skladTovaru",
+    "typ" : "velky",
+    "regale" : [ ]
+  }, {
+    "kluc" : "vydajTovaru",
+    "typ" : "maly",
+    "regale" : [ {
+      "kapacita" : 5,
+      "tovar" : [ ]
+    } ]
+  } ],
+  "tovar" : [ ],
+  "pracovnici" : [ {
+    "id" : "1",
+    "meno" : "a",
+    "priezvisko" : "b",
+    "miestnost" : "skladTovaru",
+    "drzanyTovar" : null
+  } ]
+}

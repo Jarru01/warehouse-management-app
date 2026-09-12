@@ -7,12 +7,6 @@ build/
 JavaDoc/
 docs/generated/
 
-# Runtime state
-sklad.dat
-sklad.dat.tmp
-sklad.dat.korumpovany-*
-sklad.txt
-
 # IDE
 .idea/
 *.iml

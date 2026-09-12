@@ -132,6 +132,16 @@ public class SkladService {
     }
 
     /**
+     * Vrati tovar v miestnosti na vydaj tovaru, ktory patri zakaznikovi s danym id.
+     * @param zakaznikId id zakaznika
+     * @return zoznam tovaru
+     */
+    @Transactional(readOnly = true)
+    public List<Tovar> tovarPreZakaznika(String zakaznikId) {
+        return this.tovarRepository.findByMiestnostKlucAndPrijemcaId(Miestnost.VYDAJ_TOVARU, zakaznikId);
+    }
+
+    /**
      * Prijme noveho pracovnika a umiestni ho do hlavneho skladu tovaru.
      * @param id id pracovnika
      * @param meno meno pracovnika

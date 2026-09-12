@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="sk" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Sklad - zakaznik</title>
+    <link rel="stylesheet" th:href="@{/style.css}">
+</head>
+<body>
+<header>
+    <h1>Zakaznik</h1>
+    <form method="post" th:action="@{/odhlasenie}">
+        <button type="submit">Odhlasit</button>
+    </form>
+</header>
+<main>
+    <p class="sprava" th:if="${sprava}" th:text="${sprava}"></p>
+    <p class="chyba" th:if="${chyba}" th:text="${chyba}"></p>
+
+    <section>
+        <h2>Vlozenie tovaru</h2>
+        <form method="post" th:action="@{/zakaznik/tovar}">
+            <label>ID tovaru <input type="text" name="id" required></label>
+            <label>Nazov <input type="text" name="nazov" required></label>
+            <label>Vaha (g) <input type="number" name="vaha" min="1" required></label>
+            <label>ID prijemcu <input type="text" name="prijemcaId" required></label>
+            <label>Meno prijemcu <input type="text" name="prijemcaMeno" required></label>
+            <label>Priezvisko prijemcu <input type="text" name="prijemcaPriezvisko" required></label>
+            <button type="submit">Ulozit tovar</button>
+        </form>
+    </section>
+
+    <section>
+        <h2>Tovar pripraveny na vyzdvihnutie</h2>
+        <p th:if="${tovar.isEmpty()}">Ziadny tovar na vyzdvihnutie.</p>
+        <table th:if="${!tovar.isEmpty()}">
+            <tr>
+                <th>ID</th>
+                <th>Nazov</th>
+                <th>Vaha</th>
+                <th></th>
+            </tr>
+            <tr th:each="polozka : ${tovar}">
+                <td th:text="${polozka.id}"></td>
+                <td th:text="${polozka.nazov}"></td>
+                <td th:text="${polozka.vaha} + ' g'"></td>
+                <td>
+                    <form method="post" th:action="@{'/zakaznik/vyzdvihnutie/' + ${polozka.id}}">
+                        <button type="submit">Vyzdvihnut</button>
+                    </form>
+                </td>
+            </tr>
+        </table>
+    </section>
+</main>
+</body>
+</html>

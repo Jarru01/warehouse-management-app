@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="sk" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Sklad - prihlasenie</title>
+    <link rel="stylesheet" th:href="@{/style.css}">
+</head>
+<body>
+<header>
+    <h1>System riadenia skladu</h1>
+</header>
+<main>
+    <p class="chyba" th:if="${chyba}" th:text="${chyba}"></p>
+    <div class="karty">
+        <section class="karta">
+            <h2>Riaditel</h2>
+            <form method="post" th:action="@{/prihlasenie/riaditel}">
+                <label>ID <input type="text" name="id" required></label>
+                <button type="submit">Prihlasit</button>
+            </form>
+        </section>
+        <section class="karta">
+            <h2>Pracovnik</h2>
+            <form method="post" th:action="@{/prihlasenie/pracovnik}">
+                <label>ID <input type="text" name="id" required></label>
+                <button type="submit">Prihlasit</button>
+            </form>
+        </section>
+        <section class="karta">
+            <h2>Zakaznik</h2>
+            <form method="post" th:action="@{/prihlasenie/zakaznik}">
+                <label>ID <input type="text" name="id" required></label>
+                <label>Meno <input type="text" name="meno" required></label>
+                <label>Priezvisko <input type="text" name="priezvisko" required></label>
+                <button type="submit">Prihlasit</button>
+            </form>
+        </section>
+    </div>
+</main>
+</body>
+</html>

@@ -1,4 +1,4 @@
-package warehouse.service;
+package warehouse.domain;
 
 /**
  * Vynimka pre operaciu, ktoru nie je mozne vykonat.

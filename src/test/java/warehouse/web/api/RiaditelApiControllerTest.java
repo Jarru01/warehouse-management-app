@@ -10,8 +10,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import warehouse.domain.Pracovnik;
 import warehouse.domain.Regal;
 import warehouse.domain.VelkySklad;
-import warehouse.service.NenajdenaEntitaException;
-import warehouse.service.NeplatnaOperaciaException;
+import warehouse.domain.NenajdenaEntitaException;
+import warehouse.domain.NeplatnaOperaciaException;
 import warehouse.service.SkladService;
 
 import java.util.List;

@@ -21,4 +21,13 @@ public class VelkySklad extends Miestnost {
     public VelkySklad(String kluc) {
         super(kluc);
     }
+
+    /**
+     * Vrati typ miestnosti.
+     * @return typ VELKY
+     */
+    @Override
+    public TypMiestnosti getTyp() {
+        return TypMiestnosti.VELKY;
+    }
 }

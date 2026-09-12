@@ -1,4 +1,4 @@
-package warehouse.service;
+package warehouse.domain;
 
 /**
  * Vynimka pre poziadanie o entitu, ktora neexistuje.

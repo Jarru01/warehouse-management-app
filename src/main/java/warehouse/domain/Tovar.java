@@ -73,11 +73,20 @@ public class Tovar {
     }
 
     /**
-     * Ulozi tovar do regalu na dany slot.
+     * Ulozi tovar do regalu na dany slot. Slot musi byt v rozsahu kapacity regala a tovar nesmie byt uz ulozeny.
      * @param regal regal, do ktoreho sa tovar uklada
      * @param slot poradove cislo slotu v regali
      */
     public void ulozDoRegalu(Regal regal, int slot) {
+        if (regal == null) {
+            throw new NeplatnaOperaciaException("Regal neexistuje.");
+        }
+        if (slot < 1 || slot > regal.getKapacita()) {
+            throw new NeplatnaOperaciaException("Slot " + slot + " je mimo kapacity regala.");
+        }
+        if (this.regal != null) {
+            throw new NeplatnaOperaciaException("Tovar je uz ulozeny v regali.");
+        }
         this.regal = regal;
         this.slot = slot;
     }

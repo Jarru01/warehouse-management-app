@@ -10,7 +10,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import warehouse.domain.Miestnost;
 import warehouse.domain.Pracovnik;
 import warehouse.domain.VelkySklad;
-import warehouse.service.NeplatnaOperaciaException;
+import warehouse.domain.NeplatnaOperaciaException;
 import warehouse.service.SkladService;
 
 import static org.mockito.ArgumentMatchers.anyString;

@@ -6,8 +6,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.http.ProblemDetail;
-import warehouse.service.NenajdenaEntitaException;
-import warehouse.service.NeplatnaOperaciaException;
+import warehouse.domain.NenajdenaEntitaException;
+import warehouse.domain.NeplatnaOperaciaException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

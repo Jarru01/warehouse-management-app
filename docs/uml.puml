@@ -7,6 +7,12 @@ package "warehouse.domain" {
   -kluc: String
   --
   +getKluc(): String
+  +{abstract}getTyp(): TypMiestnosti
+  }
+
+  enum TypMiestnosti {
+  VELKY
+  MALY
   }
 
   class VelkySklad <<Entity>>
@@ -40,10 +46,16 @@ package "warehouse.domain" {
   +vyberZRegalu(): void
   }
 
+  abstract class Osoba <<MappedSuperclass>> {
+  #meno: String
+  #priezvisko: String
+  --
+  +getMeno(): String
+  +getPriezvisko(): String
+  }
+
   class Pracovnik <<Entity>> {
   -id: String
-  -meno: String
-  -priezvisko: String
   -miestnost: Miestnost
   -drzanyTovar: Tovar
   --
@@ -55,8 +67,6 @@ package "warehouse.domain" {
 
   class Riaditel <<Entity>> {
   -id: String
-  -meno: String
-  -priezvisko: String
   }
 }
 
@@ -120,6 +130,9 @@ package "warehouse.config" {
 
 Miestnost <|-- VelkySklad
 Miestnost <|-- MalySklad
+Miestnost ..> TypMiestnosti
+Osoba <|-- Pracovnik
+Osoba <|-- Riaditel
 MalySklad "1" -- "1" Regal : regal
 VelkySklad "1" -- "*" Regal : regale
 Regal "1" -- "*" Tovar : ulozeny

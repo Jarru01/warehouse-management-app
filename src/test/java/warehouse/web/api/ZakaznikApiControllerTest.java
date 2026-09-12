@@ -9,7 +9,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import warehouse.domain.Tovar;
 import warehouse.domain.ZakaznikInfo;
-import warehouse.service.NeplatnaOperaciaException;
+import warehouse.domain.NeplatnaOperaciaException;
 import warehouse.service.SkladService;
 
 import static org.mockito.ArgumentMatchers.any;

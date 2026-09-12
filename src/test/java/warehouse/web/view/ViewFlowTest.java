@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import warehouse.AbstractIntegrationTest;
 import warehouse.domain.Miestnost;
 import warehouse.repository.TovarRepository;
-import warehouse.service.NenajdenaEntitaException;
+import warehouse.domain.NenajdenaEntitaException;
 import warehouse.service.SkladService;
 
 import static org.hamcrest.Matchers.containsString;

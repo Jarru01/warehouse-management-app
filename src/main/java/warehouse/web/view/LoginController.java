@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import warehouse.domain.Pracovnik;
 import warehouse.domain.Riaditel;
-import warehouse.service.NenajdenaEntitaException;
+import warehouse.domain.NenajdenaEntitaException;
 import warehouse.service.SkladService;
 import warehouse.web.api.DtoMapper;
 

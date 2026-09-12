@@ -41,4 +41,10 @@ public abstract class Miestnost {
     public String getKluc() {
         return this.kluc;
     }
+
+    /**
+     * Vrati typ miestnosti.
+     * @return typ miestnosti
+     */
+    public abstract TypMiestnosti getTyp();
 }

@@ -4,6 +4,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import warehouse.domain.Miestnost;
+import warehouse.domain.NenajdenaEntitaException;
+import warehouse.domain.NeplatnaOperaciaException;
 import warehouse.domain.Pracovnik;
 import warehouse.domain.Regal;
 import warehouse.domain.Riaditel;

@@ -6,6 +6,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 import warehouse.AbstractIntegrationTest;
 import warehouse.domain.Miestnost;
+import warehouse.domain.NenajdenaEntitaException;
+import warehouse.domain.NeplatnaOperaciaException;
 import warehouse.domain.Pracovnik;
 import warehouse.domain.Regal;
 import warehouse.domain.Tovar;

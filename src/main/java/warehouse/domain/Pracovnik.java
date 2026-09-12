@@ -15,17 +15,11 @@ import jakarta.persistence.Table;
  */
 @Entity
 @Table(name = "pracovnik")
-public class Pracovnik {
+public class Pracovnik extends Osoba {
 
     @Id
     @Column(nullable = false, length = 50)
     private String id;
-
-    @Column(nullable = false, length = 100)
-    private String meno;
-
-    @Column(nullable = false, length = 100)
-    private String priezvisko;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "miestnost_kluc")
@@ -45,9 +39,8 @@ public class Pracovnik {
      * @param priezvisko priezvisko pracovnika
      */
     public Pracovnik(String id, String meno, String priezvisko) {
+        super(meno, priezvisko);
         this.id = id;
-        this.meno = meno;
-        this.priezvisko = priezvisko;
     }
 
     /**
@@ -59,10 +52,16 @@ public class Pracovnik {
     }
 
     /**
-     * Pracovnik uchopi tovar z parametra.
+     * Pracovnik uchopi tovar z parametra. Ak uz nejaky tovar drzi alebo tovar neexistuje, operacia zlyha.
      * @param tovar tovar na uchopenie
      */
     public void uchop(Tovar tovar) {
+        if (tovar == null) {
+            throw new NeplatnaOperaciaException("Tovar na uchopenie neexistuje.");
+        }
+        if (this.drzanyTovar != null) {
+            throw new NeplatnaOperaciaException("Pracovnik uz drzi tovar.");
+        }
         this.drzanyTovar = tovar;
     }
 
@@ -90,22 +89,6 @@ public class Pracovnik {
     }
 
     /**
-     * Vrati meno pracovnika.
-     * @return meno pracovnika
-     */
-    public String getMeno() {
-        return this.meno;
-    }
-
-    /**
-     * Vrati priezvisko pracovnika.
-     * @return priezvisko pracovnika
-     */
-    public String getPriezvisko() {
-        return this.priezvisko;
-    }
-
-    /**
      * Vrati miestnost, v ktorej sa pracovnik nachadza.
      * @return miestnost alebo null
      */
@@ -119,5 +102,14 @@ public class Pracovnik {
      */
     public Tovar getDrzanyTovar() {
         return this.drzanyTovar;
+    }
+
+    /**
+     * Vrati string s udajmi o pracovnikovi.
+     * @return string s udajmi o pracovnikovi
+     */
+    @Override
+    public String toString() {
+        return "[Meno: " + this.getMeno() + ", Priezvisko: " + this.getPriezvisko() + ", ID: " + this.id + "]";
     }
 }

@@ -6,7 +6,6 @@ import warehouse.domain.Pracovnik;
 import warehouse.domain.Regal;
 import warehouse.domain.Riaditel;
 import warehouse.domain.Tovar;
-import warehouse.domain.VelkySklad;
 import warehouse.domain.ZakaznikInfo;
 import warehouse.web.api.dto.MiestnostResponse;
 import warehouse.web.api.dto.PracovnikResponse;
@@ -72,8 +71,7 @@ public class DtoMapper {
      * @return odpoved
      */
     public MiestnostResponse naMiestnost(Miestnost miestnost) {
-        String typ = miestnost instanceof VelkySklad ? "VELKY" : "MALY";
-        return new MiestnostResponse(miestnost.getKluc(), typ);
+        return new MiestnostResponse(miestnost.getKluc(), miestnost.getTyp().name());
     }
 
     /**

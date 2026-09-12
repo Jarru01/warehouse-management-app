@@ -75,7 +75,7 @@ public class SkladService {
      */
     @Transactional(readOnly = true)
     public List<Pracovnik> pracovnici() {
-        return this.pracovnikRepository.findAll(Sort.by("id"));
+        return this.pracovnikRepository.findAllWithDetail();
     }
 
     /**
@@ -85,7 +85,7 @@ public class SkladService {
      */
     @Transactional(readOnly = true)
     public Pracovnik pracovnik(String id) {
-        return this.pracovnikRepository.findById(id)
+        return this.pracovnikRepository.findWithDetailById(id)
                 .orElseThrow(() -> new NenajdenaEntitaException("Pracovnik " + id + " neexistuje."));
     }
 
@@ -107,7 +107,7 @@ public class SkladService {
      */
     @Transactional(readOnly = true)
     public Tovar tovar(String id) {
-        return this.tovarRepository.findById(id)
+        return this.tovarRepository.findWithDetailById(id)
                 .orElseThrow(() -> new NenajdenaEntitaException("Tovar " + id + " neexistuje."));
     }
 
@@ -118,7 +118,7 @@ public class SkladService {
      */
     @Transactional(readOnly = true)
     public List<Regal> regale(String kluc) {
-        return this.regalRepository.findByMiestnostKlucOrderByIdAsc(kluc);
+        return this.regalRepository.findByMiestnostKlucWithDetail(kluc);
     }
 
     /**
@@ -128,7 +128,7 @@ public class SkladService {
      */
     @Transactional(readOnly = true)
     public List<Tovar> tovarVRegali(Long regalId) {
-        return this.tovarRepository.findByRegalIdOrderBySlotAsc(regalId);
+        return this.tovarRepository.findByRegalIdWithDetail(regalId);
     }
 
     /**

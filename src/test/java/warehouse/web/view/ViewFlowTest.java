@@ -14,6 +14,7 @@ import warehouse.domain.NenajdenaEntitaException;
 import warehouse.service.SkladService;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,12 +40,22 @@ class ViewFlowTest extends AbstractIntegrationTest {
     private TovarRepository tovarRepository;
 
     @Test
-    void uvodnaStrankaZobrazujeVsetkyRole() throws Exception {
+    void uvodnaStrankaZobrazujeRoloveTabyAIbaJednuFormu() throws Exception {
         this.mockMvc.perform(get("/"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Riaditel")))
-                .andExpect(content().string(containsString("Pracovnik")))
-                .andExpect(content().string(containsString("Zakaznik")));
+                .andExpect(content().string(containsString("Riaditeľ")))
+                .andExpect(content().string(containsString("Pracovník")))
+                .andExpect(content().string(containsString("Zákazník")))
+                .andExpect(content().string(containsString("/prihlasenie/riaditel")))
+                .andExpect(content().string(not(containsString("/prihlasenie/zakaznik"))));
+    }
+
+    @Test
+    void vyberRolyZakaznikZobrazujeIbaJehoFormu() throws Exception {
+        this.mockMvc.perform(get("/").param("rola", "zakaznik"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("/prihlasenie/zakaznik")))
+                .andExpect(content().string(not(containsString("/prihlasenie/riaditel"))));
     }
 
     @Test
@@ -64,7 +75,8 @@ class ViewFlowTest extends AbstractIntegrationTest {
 
         this.mockMvc.perform(get("/riaditel").session(session))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Pracovnici")));
+                .andExpect(content().string(containsString("Pracovníci")))
+                .andExpect(content().string(containsString("Prepnúť používateľa")));
     }
 
     @Test

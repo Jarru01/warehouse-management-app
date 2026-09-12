@@ -61,6 +61,13 @@ public class RiaditelViewController {
         model.addAttribute("pracovnici", pracovnici);
         model.addAttribute("miestnosti", miestnosti);
         model.addAttribute("regale", regale);
+        long pocetTovarov = regale.values().stream()
+                .flatMap(List::stream)
+                .mapToLong(regal -> regal.tovar().size())
+                .sum();
+        model.addAttribute("pocetPracovnikov", pracovnici.size());
+        model.addAttribute("pocetMiestnosti", miestnosti.size());
+        model.addAttribute("pocetTovarov", pocetTovarov);
         return "riaditel";
     }
 

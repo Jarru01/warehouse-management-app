@@ -1,56 +1,82 @@
 <!DOCTYPE html>
 <html lang="sk" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <title>Sklad - zakaznik</title>
-    <link rel="stylesheet" th:href="@{/style.css}">
-</head>
+<head th:replace="~{fragments/layout :: hlavicka('Zákazník')}"></head>
 <body>
-<header>
-    <h1>Zakaznik</h1>
-    <form method="post" th:action="@{/odhlasenie}">
-        <button type="submit">Odhlasit</button>
-    </form>
-</header>
-<main>
-    <p class="sprava" th:if="${sprava}" th:text="${sprava}"></p>
-    <p class="chyba" th:if="${chyba}" th:text="${chyba}"></p>
+<a class="skip-link" href="#obsah">Preskočiť na obsah</a>
+<header th:replace="~{fragments/layout :: topbar('Zákazník')}"></header>
+<main id="obsah" class="container">
+    <h1 class="visually-hidden">Panel zákazníka</h1>
+    <div th:replace="~{fragments/layout :: spravy}"></div>
 
-    <section>
-        <h2>Vlozenie tovaru</h2>
+    <section class="card">
+        <div class="card-head"><h2>Vloženie tovaru</h2></div>
         <form method="post" th:action="@{/zakaznik/tovar}">
-            <label>ID tovaru <input type="text" name="id" required></label>
-            <label>Nazov <input type="text" name="nazov" required></label>
-            <label>Vaha (g) <input type="number" name="vaha" min="1" required></label>
-            <label>ID prijemcu <input type="text" name="prijemcaId" required></label>
-            <label>Meno prijemcu <input type="text" name="prijemcaMeno" required></label>
-            <label>Priezvisko prijemcu <input type="text" name="prijemcaPriezvisko" required></label>
-            <button type="submit">Ulozit tovar</button>
+            <div class="grid-3">
+                <div class="field">
+                    <label for="tovar-id">ID tovaru</label>
+                    <input id="tovar-id" type="text" name="id" inputmode="numeric" autocomplete="off" required>
+                </div>
+                <div class="field">
+                    <label for="tovar-nazov">Názov</label>
+                    <input id="tovar-nazov" type="text" name="nazov" autocomplete="off" required>
+                </div>
+                <div class="field">
+                    <label for="tovar-vaha">Váha (g)</label>
+                    <input id="tovar-vaha" type="number" name="vaha" min="1" inputmode="numeric" required>
+                </div>
+            </div>
+            <fieldset class="fieldset">
+                <legend>Príjemca</legend>
+                <div class="grid-3">
+                    <div class="field">
+                        <label for="prijemca-id">ID</label>
+                        <input id="prijemca-id" type="text" name="prijemcaId" inputmode="numeric" autocomplete="off" required>
+                    </div>
+                    <div class="field">
+                        <label for="prijemca-meno">Meno</label>
+                        <input id="prijemca-meno" type="text" name="prijemcaMeno" autocomplete="given-name" required>
+                    </div>
+                    <div class="field">
+                        <label for="prijemca-priezvisko">Priezvisko</label>
+                        <input id="prijemca-priezvisko" type="text" name="prijemcaPriezvisko" autocomplete="family-name" required>
+                    </div>
+                </div>
+            </fieldset>
+            <button type="submit" class="btn btn-primary">Uložiť tovar</button>
         </form>
     </section>
 
-    <section>
-        <h2>Tovar pripraveny na vyzdvihnutie</h2>
-        <p th:if="${tovar.isEmpty()}">Ziadny tovar na vyzdvihnutie.</p>
-        <table th:if="${!tovar.isEmpty()}">
-            <tr>
-                <th>ID</th>
-                <th>Nazov</th>
-                <th>Vaha</th>
-                <th></th>
-            </tr>
-            <tr th:each="polozka : ${tovar}">
-                <td th:text="${polozka.id}"></td>
-                <td th:text="${polozka.nazov}"></td>
-                <td th:text="${polozka.vaha} + ' g'"></td>
-                <td>
-                    <form method="post" th:action="@{'/zakaznik/vyzdvihnutie/' + ${polozka.id}}">
-                        <button type="submit">Vyzdvihnut</button>
-                    </form>
-                </td>
-            </tr>
-        </table>
+    <section class="card">
+        <div class="card-head"><h2>Pripravené na vyzdvihnutie</h2></div>
+        <p class="empty-state" th:if="${tovar.isEmpty()}">Žiadny tovar na vyzdvihnutie.</p>
+        <div class="table-wrap" th:if="${!tovar.isEmpty()}">
+            <table>
+                <caption>Tovar pripravený na vydanie</caption>
+                <thead>
+                <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Názov</th>
+                    <th scope="col">Váha</th>
+                    <th scope="col">Akcie</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="polozka : ${tovar}">
+                    <td class="num" th:text="${polozka.id}"></td>
+                    <td class="truncate" th:text="${polozka.nazov}" th:title="${polozka.nazov}"></td>
+                    <td class="num" th:text="${polozka.vaha} + ' g'"></td>
+                    <td>
+                        <form method="post" th:action="@{'/zakaznik/vyzdvihnutie/' + ${polozka.id}}">
+                            <button type="submit" class="btn btn-primary btn-sm">Vyzdvihnúť</button>
+                        </form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
     </section>
 </main>
+<footer th:replace="~{fragments/layout :: pata}"></footer>
+<script th:replace="~{fragments/layout :: appskript}"></script>
 </body>
 </html>

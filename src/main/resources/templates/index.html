@@ -1,41 +1,70 @@
 <!DOCTYPE html>
 <html lang="sk" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="UTF-8">
-    <title>Sklad - prihlasenie</title>
-    <link rel="stylesheet" th:href="@{/style.css}">
-</head>
-<body>
-<header>
-    <h1>System riadenia skladu</h1>
-</header>
-<main>
-    <p class="chyba" th:if="${chyba}" th:text="${chyba}"></p>
-    <div class="karty">
-        <section class="karta">
-            <h2>Riaditel</h2>
-            <form method="post" th:action="@{/prihlasenie/riaditel}">
-                <label>ID <input type="text" name="id" required></label>
-                <button type="submit">Prihlasit</button>
-            </form>
-        </section>
-        <section class="karta">
-            <h2>Pracovnik</h2>
-            <form method="post" th:action="@{/prihlasenie/pracovnik}">
-                <label>ID <input type="text" name="id" required></label>
-                <button type="submit">Prihlasit</button>
-            </form>
-        </section>
-        <section class="karta">
-            <h2>Zakaznik</h2>
-            <form method="post" th:action="@{/prihlasenie/zakaznik}">
-                <label>ID <input type="text" name="id" required></label>
-                <label>Meno <input type="text" name="meno" required></label>
-                <label>Priezvisko <input type="text" name="priezvisko" required></label>
-                <button type="submit">Prihlasit</button>
-            </form>
-        </section>
-    </div>
+<head th:replace="~{fragments/layout :: hlavicka('Prihlásenie')}"></head>
+<body class="page-login">
+<a class="skip-link" href="#obsah">Preskočiť na obsah</a>
+<div class="login-head">
+    <span class="brand-mark" aria-hidden="true">WA</span>
+    <h1>Warehouse App</h1>
+    <p>Prihlásenie do skladového systému</p>
+</div>
+<main id="obsah" class="container container-narrow">
+    <div th:replace="~{fragments/layout :: spravy}"></div>
+
+    <nav class="tabs" aria-label="Výber roly">
+        <a th:href="@{/(rola='riaditel')}" class="tab"
+           th:classappend="${rola == 'riaditel'} ? 'tab-active'"
+           th:attr="aria-current=${rola == 'riaditel'} ? 'page' : null">Riaditeľ</a>
+        <a th:href="@{/(rola='pracovnik')}" class="tab"
+           th:classappend="${rola == 'pracovnik'} ? 'tab-active'"
+           th:attr="aria-current=${rola == 'pracovnik'} ? 'page' : null">Pracovník</a>
+        <a th:href="@{/(rola='zakaznik')}" class="tab"
+           th:classappend="${rola == 'zakaznik'} ? 'tab-active'"
+           th:attr="aria-current=${rola == 'zakaznik'} ? 'page' : null">Zákazník</a>
+    </nav>
+
+    <section class="card" th:if="${rola == 'riaditel'}">
+        <h2>Prihlásenie riaditeľa</h2>
+        <form method="post" th:action="@{/prihlasenie/riaditel}">
+            <div class="field">
+                <label for="riaditel-id">ID riaditeľa</label>
+                <input id="riaditel-id" type="text" name="id" inputmode="numeric" autocomplete="off" required autofocus>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Prihlásiť sa</button>
+        </form>
+    </section>
+
+    <section class="card" th:if="${rola == 'pracovnik'}">
+        <h2>Prihlásenie pracovníka</h2>
+        <form method="post" th:action="@{/prihlasenie/pracovnik}">
+            <div class="field">
+                <label for="pracovnik-id">ID pracovníka</label>
+                <input id="pracovnik-id" type="text" name="id" inputmode="numeric" autocomplete="off" required autofocus>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Prihlásiť sa</button>
+        </form>
+    </section>
+
+    <section class="card" th:if="${rola == 'zakaznik'}">
+        <h2>Prihlásenie zákazníka</h2>
+        <form method="post" th:action="@{/prihlasenie/zakaznik}">
+            <div class="field">
+                <label for="zakaznik-id">ID zákazníka</label>
+                <input id="zakaznik-id" type="text" name="id" inputmode="numeric" autocomplete="off" required autofocus>
+            </div>
+            <div class="field">
+                <label for="zakaznik-meno">Meno</label>
+                <input id="zakaznik-meno" type="text" name="meno" autocomplete="given-name" required>
+            </div>
+            <div class="field">
+                <label for="zakaznik-priezvisko">Priezvisko</label>
+                <input id="zakaznik-priezvisko" type="text" name="priezvisko" autocomplete="family-name" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Prihlásiť sa</button>
+        </form>
+    </section>
 </main>
+<footer th:replace="~{fragments/layout :: pata}"></footer>
+<script th:replace="~{fragments/layout :: appskript}"></script>
 </body>
 </html>

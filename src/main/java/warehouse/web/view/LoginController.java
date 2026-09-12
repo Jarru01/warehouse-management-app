@@ -2,6 +2,7 @@ package warehouse.web.view;
 
 import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -32,11 +33,19 @@ public class LoginController {
     }
 
     /**
-     * Zobrazi uvodnu stranku s vyberom role.
+     * Zobrazi uvodnu stranku s vyberom roly. Vybrana rola sa prenesie do sablony.
+     * @param rola kluc zvolenej roly
+     * @param model model sablony
      * @return nazov sablony
      */
     @GetMapping("/")
-    public String index() {
+    public String index(@RequestParam(name = "rola", required = false, defaultValue = "riaditel") String rola,
+                        Model model) {
+        String vybranaRola = switch (rola) {
+            case "pracovnik", "zakaznik", "riaditel" -> rola;
+            default -> "riaditel";
+        };
+        model.addAttribute("rola", vybranaRola);
         return "index";
     }
 

@@ -1,6 +1,6 @@
-# Warehouse Management System
+# Warehouse Management App
 
-[![build](https://github.com/Jarru01/warehouse-management-web/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/Jarru01/warehouse-management-web/actions/workflows/build.yml)
+[![build](https://github.com/Jarru01/warehouse-management-app/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/Jarru01/warehouse-management-app/actions/workflows/build.yml)
 
 A Spring Boot web application for role-based warehouse management. Three roles
 use the system through server-rendered pages, while a documented REST API
@@ -95,7 +95,7 @@ curl -X POST http://localhost:8080/api/riaditel/pracovnici \
 ```bash
 ./gradlew build      # compile, run all tests, build the jar
 ./gradlew test       # tests only (Testcontainers starts PostgreSQL automatically)
-./gradlew bootJar    # runnable jar: build/libs/warehouse-management-system-2.0.0.jar
+./gradlew bootJar    # runnable jar: build/libs/warehouse-management-app-2.0.0.jar
 ./gradlew javadoc    # API documentation
 ```
 

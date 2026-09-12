@@ -30,6 +30,6 @@ public class StatusController {
     public Map<String, String> status() {
         Integer vysledok = this.jdbcTemplate.queryForObject("select 1", Integer.class);
         String databaza = vysledok != null && vysledok == 1 ? "ok" : "chyba";
-        return Map.of("application", "warehouse-management-system", "database", databaza);
+        return Map.of("application", "warehouse-management-app", "database", databaza);
     }
 }

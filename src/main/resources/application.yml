@@ -1,6 +1,6 @@
 spring:
   application:
-    name: warehouse-management-system
+    name: warehouse-management-app
   datasource:
     url: jdbc:postgresql://localhost:5432/sklad
     username: warehouse

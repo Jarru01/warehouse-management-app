@@ -3,7 +3,7 @@ plugins {
     id 'application'
 }
 
-group = 'sk.uniza.fri'
+group = 'warehouse'
 version = '1.0.0'
 
 java {
@@ -13,7 +13,7 @@ java {
 }
 
 application {
-    mainClass = 'sk.uniza.fri.Main'
+    mainClass = 'warehouse.Main'
 }
 
 repositories {
@@ -51,7 +51,7 @@ tasks.named('run') {
 
 tasks.named('jar') {
     manifest {
-        attributes 'Main-Class': 'sk.uniza.fri.Main'
+        attributes 'Main-Class': 'warehouse.Main'
     }
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from {

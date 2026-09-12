@@ -66,7 +66,7 @@ On Windows use `gradlew.bat` instead of `./gradlew`. The runnable jar is
 written to `build/libs/warehouse-management-system-1.0.0.jar`.
 
 Alternatively, open the project in IntelliJ IDEA as a Gradle project and run
-`sk.uniza.fri.Main` directly.
+`warehouse.Main` directly.
 
 ## ✅ Tests
 

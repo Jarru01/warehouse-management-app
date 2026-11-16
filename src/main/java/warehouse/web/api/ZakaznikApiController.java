@@ -1,5 +1,6 @@
 package warehouse.web.api;
 
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,6 +15,7 @@ import warehouse.service.SkladService;
 import warehouse.web.api.dto.TovarResponse;
 import warehouse.web.api.dto.VlozitTovarRequest;
 import warehouse.web.api.dto.ZakaznikRequest;
+import warehouse.web.view.SessionKluce;
 
 /**
  * REST rozhranie pre zakaznika.
@@ -36,13 +38,17 @@ public class ZakaznikApiController {
     }
 
     /**
-     * Vytvori tovar a ulozi ho do miestnosti na prijem tovaru.
+     * Vytvori tovar a ulozi ho do miestnosti na prijem tovaru. Odosielatelom musi byt prihlaseny zakaznik.
      * @param request poziadavka na vytvorenie tovaru
+     * @param session HTTP session s identitou prihlaseneho zakaznika
      * @return vytvoreny tovar
      */
     @PostMapping("/tovar")
     @ResponseStatus(HttpStatus.CREATED)
-    public TovarResponse vytvorTovar(@Valid @RequestBody VlozitTovarRequest request) {
+    public TovarResponse vytvorTovar(@Valid @RequestBody VlozitTovarRequest request, HttpSession session) {
+        if (!request.odosielatel().id().equals(session.getAttribute(SessionKluce.IDENTITA))) {
+            throw new ZakazanyPristupException("Odosielatelom musi byt prihlaseny zakaznik.");
+        }
         Tovar tovar = this.skladService.vytvorTovar(request.id(), request.nazov(), request.vaha(),
                 this.naZakaznika(request.odosielatel()), this.naZakaznika(request.prijemca()));
         return this.mapper.naTovar(tovar);

@@ -60,11 +60,14 @@ public class Tovar {
      * Vytvori tovar z parametrov. Tovar nie je umiestneny v ziadnom regali.
      * @param id id tovaru
      * @param nazov nazov tovaru
-     * @param vaha vaha tovaru v gramoch
+     * @param vaha vaha tovaru v gramoch, musi byt kladna
      * @param odosielatel odosielatel tovaru
      * @param prijemca prijemca tovaru
      */
     public Tovar(String id, String nazov, int vaha, ZakaznikInfo odosielatel, ZakaznikInfo prijemca) {
+        if (vaha < 1) {
+            throw new IllegalArgumentException("Vaha tovaru musi byt kladna.");
+        }
         this.id = id;
         this.nazov = nazov;
         this.vaha = vaha;

@@ -102,6 +102,7 @@
             <div class="card-head">
                 <h3 th:text="'Regál #' + ${regal.id} + ' · kapacita ' + ${regal.kapacita}"></h3>
                 <form method="post" th:action="@{'/riaditel/regale/' + ${regal.id} + '/odstranenie'}"
+                      th:if="${miestnost.typ == 'VELKY'}"
                       data-potvrdenie="Naozaj odstrániť tento regál?">
                     <button type="submit" class="btn btn-danger btn-sm">Odstrániť</button>
                 </form>

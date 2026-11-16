@@ -112,6 +112,9 @@ package "warehouse.web.api" {
   class StatusController
   class DtoMapper
   class GlobalExceptionHandler
+  class ApiRolaInterceptor
+  class NeprihlasenyException
+  class ZakazanyPristupException
 }
 
 package "warehouse.web.view" {
@@ -120,6 +123,7 @@ package "warehouse.web.view" {
   class PracovnikViewController
   class ZakaznikViewController
   class RolaInterceptor
+  class FormularValidator
   class WebConfig
 }
 
@@ -165,6 +169,14 @@ RiaditelViewController --> SkladService
 PracovnikViewController --> SkladService
 ZakaznikViewController --> SkladService
 WebConfig --> RolaInterceptor
+WebConfig --> ApiRolaInterceptor
+ApiRolaInterceptor ..> NeprihlasenyException
+ApiRolaInterceptor ..> ZakazanyPristupException
+GlobalExceptionHandler ..> NeprihlasenyException
+GlobalExceptionHandler ..> ZakazanyPristupException
+LoginController --> FormularValidator
+RiaditelViewController --> FormularValidator
+ZakaznikViewController --> FormularValidator
 
 DataInitializer --> MiestnostRepository
 DataInitializer --> RegalRepository

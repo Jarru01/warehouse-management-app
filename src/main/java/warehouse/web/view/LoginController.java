@@ -11,7 +11,9 @@ import warehouse.domain.Pracovnik;
 import warehouse.domain.Riaditel;
 import warehouse.domain.NenajdenaEntitaException;
 import warehouse.service.SkladService;
-import warehouse.web.api.DtoMapper;
+import warehouse.web.api.dto.ZakaznikRequest;
+
+import java.util.Optional;
 
 /**
  * Prihlasenie a odhlasenie pouzivatelov.
@@ -20,16 +22,16 @@ import warehouse.web.api.DtoMapper;
 @Controller
 public class LoginController {
     private final SkladService skladService;
-    private final DtoMapper mapper;
+    private final FormularValidator validator;
 
     /**
-     * Vytvori kontroler so servisom a mapovacom.
+     * Vytvori kontroler so servisom a validatorom formularov.
      * @param skladService servis skladu
-     * @param mapper prevodnik na DTO
+     * @param validator validator formularov
      */
-    public LoginController(SkladService skladService, DtoMapper mapper) {
+    public LoginController(SkladService skladService, FormularValidator validator) {
         this.skladService = skladService;
-        this.mapper = mapper;
+        this.validator = validator;
     }
 
     /**
@@ -60,7 +62,7 @@ public class LoginController {
     public String prihlasRiaditela(@RequestParam String id, HttpSession session, RedirectAttributes attributes) {
         try {
             Riaditel riaditel = this.skladService.riaditel(id);
-            this.ulozPrihlasenie(session, "RIADITEL", riaditel.getId(), riaditel.getMeno(), riaditel.getPriezvisko());
+            this.ulozPrihlasenie(session, SessionKluce.ROLA_RIADITEL, riaditel.getId(), riaditel.getMeno(), riaditel.getPriezvisko());
             return "redirect:/riaditel";
         } catch (NenajdenaEntitaException e) {
             attributes.addFlashAttribute("chyba", e.getMessage());
@@ -79,7 +81,7 @@ public class LoginController {
     public String prihlasPracovnika(@RequestParam String id, HttpSession session, RedirectAttributes attributes) {
         try {
             Pracovnik pracovnik = this.skladService.pracovnik(id);
-            this.ulozPrihlasenie(session, "PRACOVNIK", pracovnik.getId(), pracovnik.getMeno(), pracovnik.getPriezvisko());
+            this.ulozPrihlasenie(session, SessionKluce.ROLA_PRACOVNIK, pracovnik.getId(), pracovnik.getMeno(), pracovnik.getPriezvisko());
             return "redirect:/pracovnik";
         } catch (NenajdenaEntitaException e) {
             attributes.addFlashAttribute("chyba", e.getMessage());
@@ -99,11 +101,12 @@ public class LoginController {
     @PostMapping("/prihlasenie/zakaznik")
     public String prihlasZakaznika(@RequestParam String id, @RequestParam String meno, @RequestParam String priezvisko,
                                    HttpSession session, RedirectAttributes attributes) {
-        if (!id.matches("\\d+") || !meno.matches("\\p{L}+") || !priezvisko.matches("\\p{L}+")) {
-            attributes.addFlashAttribute("chyba", "Zadaj ID v tvare cisla a meno s priezviskom z pismen.");
+        Optional<String> chyby = this.validator.chyby(new ZakaznikRequest(id, meno, priezvisko));
+        if (chyby.isPresent()) {
+            attributes.addFlashAttribute("chyba", chyby.get());
             return "redirect:/";
         }
-        this.ulozPrihlasenie(session, "ZAKAZNIK", id, meno, priezvisko);
+        this.ulozPrihlasenie(session, SessionKluce.ROLA_ZAKAZNIK, id, meno, priezvisko);
         return "redirect:/zakaznik";
     }
 

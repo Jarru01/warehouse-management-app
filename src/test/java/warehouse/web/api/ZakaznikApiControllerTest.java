@@ -13,16 +13,30 @@ import warehouse.domain.NeplatnaOperaciaException;
 import warehouse.service.SkladService;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static warehouse.web.api.ApiPrihlasenie.zakaznik;
 
 @WebMvcTest(ZakaznikApiController.class)
 @Import(DtoMapper.class)
 class ZakaznikApiControllerTest {
+
+    private static final String TOVAR_OD_10 = """
+            {
+              "id": "100",
+              "nazov": "Tovar100",
+              "vaha": 500,
+              "odosielatel": {"id": "10", "meno": "Jan", "priezvisko": "Novy"},
+              "prijemca": {"id": "20", "meno": "Peter", "priezvisko": "Novak"}
+            }
+            """;
 
     @Autowired
     private MockMvc mockMvc;
@@ -37,17 +51,9 @@ class ZakaznikApiControllerTest {
         given(this.skladService.vytvorTovar(eq("100"), eq("Tovar100"), eq(500),
                 any(ZakaznikInfo.class), any(ZakaznikInfo.class))).willReturn(tovar);
 
-        this.mockMvc.perform(post("/api/zakaznik/tovar")
+        this.mockMvc.perform(post("/api/zakaznik/tovar").with(zakaznik("10"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "id": "100",
-                                  "nazov": "Tovar100",
-                                  "vaha": 500,
-                                  "odosielatel": {"id": "10", "meno": "Jan", "priezvisko": "Novy"},
-                                  "prijemca": {"id": "20", "meno": "Peter", "priezvisko": "Novak"}
-                                }
-                                """))
+                        .content(TOVAR_OD_10))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value("100"))
                 .andExpect(jsonPath("$.prijemca.id").value("20"));
@@ -55,17 +61,9 @@ class ZakaznikApiControllerTest {
 
     @Test
     void neplatnaVahaVrati400() throws Exception {
-        this.mockMvc.perform(post("/api/zakaznik/tovar")
+        this.mockMvc.perform(post("/api/zakaznik/tovar").with(zakaznik("10"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "id": "100",
-                                  "nazov": "Tovar100",
-                                  "vaha": 0,
-                                  "odosielatel": {"id": "10", "meno": "Jan", "priezvisko": "Novy"},
-                                  "prijemca": {"id": "20", "meno": "Peter", "priezvisko": "Novak"}
-                                }
-                                """))
+                        .content(TOVAR_OD_10.replace("\"vaha\": 500", "\"vaha\": 0")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.chyby.vaha").exists());
     }
@@ -75,23 +73,25 @@ class ZakaznikApiControllerTest {
         given(this.skladService.vytvorTovar(any(), any(), any(Integer.class), any(), any()))
                 .willThrow(new NeplatnaOperaciaException("Tovar so zadanym ID uz existuje."));
 
-        this.mockMvc.perform(post("/api/zakaznik/tovar")
+        this.mockMvc.perform(post("/api/zakaznik/tovar").with(zakaznik("10"))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "id": "100",
-                                  "nazov": "Tovar100",
-                                  "vaha": 500,
-                                  "odosielatel": {"id": "10", "meno": "Jan", "priezvisko": "Novy"},
-                                  "prijemca": {"id": "20", "meno": "Peter", "priezvisko": "Novak"}
-                                }
-                                """))
+                        .content(TOVAR_OD_10))
                 .andExpect(status().isConflict());
     }
 
     @Test
+    void vlozenieZaInehoOdosielatelaVrati403() throws Exception {
+        this.mockMvc.perform(post("/api/zakaznik/tovar").with(zakaznik("99"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(TOVAR_OD_10))
+                .andExpect(status().isForbidden());
+
+        then(this.skladService).should(never()).vytvorTovar(any(), any(), any(Integer.class), any(), any());
+    }
+
+    @Test
     void vyzdvihnutieVrati204() throws Exception {
-        this.mockMvc.perform(post("/api/zakaznik/20/vyzdvihnutie/100"))
+        this.mockMvc.perform(post("/api/zakaznik/20/vyzdvihnutie/100").with(zakaznik("20")))
                 .andExpect(status().isNoContent());
     }
 
@@ -100,8 +100,24 @@ class ZakaznikApiControllerTest {
         willThrow(new NeplatnaOperaciaException("Tovar nepatri zadanemu zakaznikovi."))
                 .given(this.skladService).vyzdvihniTovar("100", "10");
 
-        this.mockMvc.perform(post("/api/zakaznik/10/vyzdvihnutie/100"))
+        this.mockMvc.perform(post("/api/zakaznik/10/vyzdvihnutie/100").with(zakaznik("10")))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.title").value("Neplatna operacia"));
+    }
+
+    @Test
+    void vyzdvihnutieZaInehoZakaznikaVrati403() throws Exception {
+        this.mockMvc.perform(post("/api/zakaznik/20/vyzdvihnutie/100").with(zakaznik("10")))
+                .andExpect(status().isForbidden());
+
+        then(this.skladService).should(never()).vyzdvihniTovar(anyString(), anyString());
+    }
+
+    @Test
+    void vyzdvihnutieBezPrihlaseniaVrati401() throws Exception {
+        this.mockMvc.perform(post("/api/zakaznik/20/vyzdvihnutie/100"))
+                .andExpect(status().isUnauthorized());
+
+        then(this.skladService).should(never()).vyzdvihniTovar(anyString(), anyString());
     }
 }

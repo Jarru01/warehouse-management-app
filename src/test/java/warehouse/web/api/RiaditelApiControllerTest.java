@@ -18,12 +18,16 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static warehouse.web.api.ApiPrihlasenie.pracovnik;
+import static warehouse.web.api.ApiPrihlasenie.riaditel;
 
 @WebMvcTest(RiaditelApiController.class)
 @Import(DtoMapper.class)
@@ -40,7 +44,7 @@ class RiaditelApiControllerTest {
         given(this.skladService.prijmiPracovnika("5", "Peter", "Novak"))
                 .willReturn(new Pracovnik("5", "Peter", "Novak"));
 
-        this.mockMvc.perform(post("/api/riaditel/pracovnici")
+        this.mockMvc.perform(post("/api/riaditel/pracovnici").with(riaditel())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"id\":\"5\",\"meno\":\"Peter\",\"priezvisko\":\"Novak\"}"))
                 .andExpect(status().isCreated())
@@ -50,7 +54,7 @@ class RiaditelApiControllerTest {
 
     @Test
     void neplatneIdVrati400() throws Exception {
-        this.mockMvc.perform(post("/api/riaditel/pracovnici")
+        this.mockMvc.perform(post("/api/riaditel/pracovnici").with(riaditel())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"id\":\"x\",\"meno\":\"Peter\",\"priezvisko\":\"Novak\"}"))
                 .andExpect(status().isBadRequest())
@@ -58,11 +62,22 @@ class RiaditelApiControllerTest {
     }
 
     @Test
+    void prilisDlheMenoVrati400() throws Exception {
+        String dlheMeno = "A".repeat(101);
+
+        this.mockMvc.perform(post("/api/riaditel/pracovnici").with(riaditel())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"id\":\"5\",\"meno\":\"" + dlheMeno + "\",\"priezvisko\":\"Novak\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.chyby.meno").exists());
+    }
+
+    @Test
     void konfliktVrati409() throws Exception {
         given(this.skladService.prijmiPracovnika(anyString(), anyString(), anyString()))
                 .willThrow(new NeplatnaOperaciaException("Pracovnik so zadanym ID uz existuje."));
 
-        this.mockMvc.perform(post("/api/riaditel/pracovnici")
+        this.mockMvc.perform(post("/api/riaditel/pracovnici").with(riaditel())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"id\":\"5\",\"meno\":\"Peter\",\"priezvisko\":\"Novak\"}"))
                 .andExpect(status().isConflict())
@@ -74,7 +89,7 @@ class RiaditelApiControllerTest {
         willThrow(new NenajdenaEntitaException("Pracovnik 99 neexistuje."))
                 .given(this.skladService).vylucPracovnika("99");
 
-        this.mockMvc.perform(delete("/api/riaditel/pracovnici/99"))
+        this.mockMvc.perform(delete("/api/riaditel/pracovnici/99").with(riaditel()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title").value("Entita neexistuje"));
     }
@@ -84,7 +99,7 @@ class RiaditelApiControllerTest {
         given(this.skladService.pracovnici())
                 .willReturn(List.of(new Pracovnik("5", "Peter", "Novak")));
 
-        this.mockMvc.perform(get("/api/riaditel/pracovnici"))
+        this.mockMvc.perform(get("/api/riaditel/pracovnici").with(riaditel()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value("5"));
     }
@@ -94,7 +109,7 @@ class RiaditelApiControllerTest {
         given(this.skladService.pridajRegal(5))
                 .willReturn(new Regal(new VelkySklad("skladTovaru"), 5));
 
-        this.mockMvc.perform(post("/api/riaditel/regale")
+        this.mockMvc.perform(post("/api/riaditel/regale").with(riaditel())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"kapacita\":5}"))
                 .andExpect(status().isCreated())
@@ -103,10 +118,28 @@ class RiaditelApiControllerTest {
 
     @Test
     void neplatnaKapacitaRegaluVrati400() throws Exception {
-        this.mockMvc.perform(post("/api/riaditel/regale")
+        this.mockMvc.perform(post("/api/riaditel/regale").with(riaditel())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"kapacita\":0}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.chyby.kapacita").exists());
+    }
+
+    @Test
+    void bezPrihlaseniaVrati401() throws Exception {
+        this.mockMvc.perform(delete("/api/riaditel/pracovnici/5"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.title").value("Neprihlaseny pouzivatel"));
+
+        then(this.skladService).should(never()).vylucPracovnika(anyString());
+    }
+
+    @Test
+    void inaRolaVrati403() throws Exception {
+        this.mockMvc.perform(delete("/api/riaditel/pracovnici/5").with(pracovnik("5")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.title").value("Zakazany pristup"));
+
+        then(this.skladService).should(never()).vylucPracovnika(anyString());
     }
 }

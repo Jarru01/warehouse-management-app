@@ -140,6 +140,28 @@ class SkladServiceTest extends AbstractIntegrationTest {
         assertThrows(NeplatnaOperaciaException.class, () -> this.skladService.odstranRegal(regal.getId()));
     }
 
+    @Test
+    void odstranenieRegaluMalehoSkladuZlyha() {
+        Regal prijem = this.regalV(Miestnost.PRIJEM_TOVARU);
+        Regal vydaj = this.regalV(Miestnost.VYDAJ_TOVARU);
+
+        assertThrows(NeplatnaOperaciaException.class, () -> this.skladService.odstranRegal(prijem.getId()));
+        assertThrows(NeplatnaOperaciaException.class, () -> this.skladService.odstranRegal(vydaj.getId()));
+
+        assertEquals(1, this.skladService.regale(Miestnost.PRIJEM_TOVARU).size());
+        assertEquals(1, this.skladService.regale(Miestnost.VYDAJ_TOVARU).size());
+    }
+
+    @Test
+    void prazdnyRegalVelkehoSkladuSaOdstrani() {
+        Regal regal = this.skladService.pridajRegal(3);
+
+        this.skladService.odstranRegal(regal.getId());
+
+        assertTrue(this.skladService.regale(Miestnost.SKLAD_TOVARU).stream()
+                .noneMatch(r -> r.getId().equals(regal.getId())));
+    }
+
     private void presunTovaruDoVydaja(String tovarId) {
         this.skladService.prijmiPracovnika("1", "Mover", "Tester");
         this.skladService.presunPracovnika("1", Miestnost.PRIJEM_TOVARU);

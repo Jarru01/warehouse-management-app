@@ -10,6 +10,7 @@ import warehouse.domain.Pracovnik;
 import warehouse.domain.Regal;
 import warehouse.domain.Riaditel;
 import warehouse.domain.Tovar;
+import warehouse.domain.TypMiestnosti;
 import warehouse.domain.ZakaznikInfo;
 import warehouse.repository.MiestnostRepository;
 import warehouse.repository.PracovnikRepository;
@@ -184,12 +185,15 @@ public class SkladService {
     }
 
     /**
-     * Odstrani prazdny regal.
+     * Odstrani prazdny regal. Jediny regal maleho skladu odstranit nie je mozne.
      * @param regalId id regalu
      */
     @Transactional
     public void odstranRegal(Long regalId) {
         Regal regal = this.regal(regalId);
+        if (regal.getMiestnost().getTyp() == TypMiestnosti.MALY) {
+            throw new NeplatnaOperaciaException("Regal maleho skladu nie je mozne odstranit.");
+        }
         if (this.tovarRepository.countByRegalId(regalId) > 0) {
             throw new NeplatnaOperaciaException("Regal nie je prazdny.");
         }

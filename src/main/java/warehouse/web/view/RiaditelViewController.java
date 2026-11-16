@@ -15,11 +15,14 @@ import warehouse.service.SkladService;
 import warehouse.web.api.DtoMapper;
 import warehouse.web.api.dto.MiestnostResponse;
 import warehouse.web.api.dto.PracovnikResponse;
+import warehouse.web.api.dto.PridatRegalRequest;
+import warehouse.web.api.dto.PrijmoutPracovnikaRequest;
 import warehouse.web.api.dto.RegalResponse;
 
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Obrazovky riaditela.
@@ -30,15 +33,18 @@ import java.util.Map;
 public class RiaditelViewController {
     private final SkladService skladService;
     private final DtoMapper mapper;
+    private final FormularValidator validator;
 
     /**
-     * Vytvori kontroler so servisom a mapovacom.
+     * Vytvori kontroler so servisom, mapovacom a validatorom formularov.
      * @param skladService servis skladu
      * @param mapper prevodnik na DTO
+     * @param validator validator formularov
      */
-    public RiaditelViewController(SkladService skladService, DtoMapper mapper) {
+    public RiaditelViewController(SkladService skladService, DtoMapper mapper, FormularValidator validator) {
         this.skladService = skladService;
         this.mapper = mapper;
+        this.validator = validator;
     }
 
     /**
@@ -82,6 +88,11 @@ public class RiaditelViewController {
     @PostMapping("/pracovnici")
     public String prijmiPracovnika(@RequestParam String id, @RequestParam String meno, @RequestParam String priezvisko,
                                    RedirectAttributes attributes) {
+        Optional<String> chyby = this.validator.chyby(new PrijmoutPracovnikaRequest(id, meno, priezvisko));
+        if (chyby.isPresent()) {
+            attributes.addFlashAttribute("chyba", chyby.get());
+            return "redirect:/riaditel";
+        }
         try {
             this.skladService.prijmiPracovnika(id, meno, priezvisko);
             attributes.addFlashAttribute("sprava", "Pracovnik bol uspesne prijaty.");
@@ -116,6 +127,11 @@ public class RiaditelViewController {
      */
     @PostMapping("/regale")
     public String pridajRegal(@RequestParam int kapacita, RedirectAttributes attributes) {
+        Optional<String> chyby = this.validator.chyby(new PridatRegalRequest(kapacita));
+        if (chyby.isPresent()) {
+            attributes.addFlashAttribute("chyba", chyby.get());
+            return "redirect:/riaditel";
+        }
         try {
             this.skladService.pridajRegal(kapacita);
             attributes.addFlashAttribute("sprava", "Regal bol pridany.");

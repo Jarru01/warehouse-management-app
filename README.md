@@ -10,9 +10,9 @@ manages racks, the **worker** moves between rooms and handles goods, and the
 
 ## 🚀 Features
 
-- **Role-based areas** — session login for director, worker and customer, with URL-pattern access control.
+- **Role-based areas** — session login for director, worker and customer, with URL-pattern access control for both the pages and the REST API.
 - **REST API** — versionless JSON endpoints under `/api` with request DTOs, Bean Validation and RFC 9457 `ProblemDetail` errors.
-- **Warehouse rules** — racks with fixed capacity and numbered slots, hands-full workers, room-bound picking, recipient-checked pickup, safe dismissal of workers holding goods.
+- **Warehouse rules** — racks with fixed capacity and numbered slots, hands-full workers, room-bound picking, recipient-checked pickup, safe dismissal of workers holding goods, and protected single racks in the receiving and dispatch rooms.
 - **PostgreSQL persistence** — Spring Data JPA entities and repositories, seeded with a director and three rooms on first start.
 - **Tests** — domain services, repositories and both web layers covered by integration tests running against a real PostgreSQL via Testcontainers.
 
@@ -99,14 +99,29 @@ passwords and CSRF protection is a possible future step.
 | POST | `/api/zakaznik/tovar` | Deposit an item (`id`, `nazov`, `vaha`, `odosielatel`, `prijemca`) |
 | POST | `/api/zakaznik/{zakaznikId}/vyzdvihnutie/{tovarId}` | Pick up an item ready for release |
 
-Errors use `ProblemDetail`: `400` for invalid input, `404` for unknown
-entities, `409` for state conflicts (duplicate ID, full rack, hands full,
-wrong room, wrong recipient).
+The API uses the same session as the pages: log in through the matching
+`/prihlasenie/...` form endpoint first and send the session cookie with every
+call. Access rules:
+
+| Path | Allowed |
+|---|---|
+| `/api/status` | everyone |
+| `/api/riaditel/**` | director |
+| `/api/pracovnik/{id}/**` | the worker whose ID is `{id}` |
+| `/api/zakaznik/tovar` | a customer, and only as the sender (`odosielatel.id`) |
+| `/api/zakaznik/{zakaznikId}/**` | the customer whose ID is `{zakaznikId}` |
+| `/api/miestnosti/**` | director and workers |
+
+Errors use `ProblemDetail`: `400` for invalid input, `401` without login,
+`403` for the wrong role or someone else's ID, `404` for unknown entities,
+`409` for state conflicts (duplicate ID, full rack, hands full, wrong room,
+wrong recipient, removing the rack of a small room).
 
 Example:
 
 ```bash
-curl -X POST http://localhost:8080/api/riaditel/pracovnici \
+curl -c cookies.txt -d id=123 http://localhost:8080/prihlasenie/riaditel
+curl -b cookies.txt -X POST http://localhost:8080/api/riaditel/pracovnici \
   -H "Content-Type: application/json" \
   -d '{"id":"5","meno":"Peter","priezvisko":"Novak"}'
 ```
@@ -152,8 +167,8 @@ starts its own disposable PostgreSQL instance.
 | `warehouse.domain` | JPA entities with the warehouse model (`Miestnost`/`VelkySklad`/`MalySklad`, `Regal`, `Tovar`, `Pracovnik`, `Riaditel`, `ZakaznikInfo`) |
 | `warehouse.repository` | Spring Data JPA repositories with fetch-join queries for read models |
 | `warehouse.service` | `SkladService` — all transactional operations and business rules |
-| `warehouse.web.api` | REST controllers, DTOs, mapper and the `ProblemDetail` exception handler |
-| `warehouse.web.view` | Thymeleaf controllers, session login and role interceptors |
+| `warehouse.web.api` | REST controllers, DTOs, mapper, the API role interceptor and the `ProblemDetail` exception handler |
+| `warehouse.web.view` | Thymeleaf controllers, session login, role interceptors and form validation (same DTO rules as the API) |
 | `warehouse.config` | Seed data (`DataInitializer`) |
 
 The class diagram is in [`docs/uml.puml`](docs/uml.puml).

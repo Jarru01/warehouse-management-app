@@ -156,6 +156,74 @@ class ViewFlowTest extends AbstractIntegrationTest {
         assertThrows(NenajdenaEntitaException.class, () -> this.skladService.tovar("100"));
     }
 
+    @Test
+    void zakaznikSoZapornouVahouDostaneChybu() throws Exception {
+        MockHttpSession session = this.prihlasZakaznika("10", "Jan", "Novy");
+
+        this.mockMvc.perform(post("/zakaznik/tovar")
+                        .param("id", "100").param("nazov", "Tovar100").param("vaha", "-5")
+                        .param("prijemcaId", "20").param("prijemcaMeno", "Peter").param("prijemcaPriezvisko", "Novak")
+                        .session(session))
+                .andExpect(redirectedUrl("/zakaznik"))
+                .andExpect(flash().attribute("chyba", containsString("Vaha musi byt kladna.")));
+
+        assertTrue(this.tovarRepository.findById("100").isEmpty());
+    }
+
+    @Test
+    void riaditelNemozePrijatPracovnikaSNeplatnymMenom() throws Exception {
+        MockHttpSession session = this.prihlasRiaditela();
+
+        this.mockMvc.perform(post("/riaditel/pracovnici")
+                        .param("id", "7").param("meno", "").param("priezvisko", "Novak").session(session))
+                .andExpect(redirectedUrl("/riaditel"))
+                .andExpect(flash().attribute("chyba", containsString("Meno je povinne.")));
+
+        assertTrue(this.skladService.pracovnici().stream().noneMatch(p -> p.getId().equals("7")));
+    }
+
+    @Test
+    void riaditelNemozePridatRegalNadMaximalnuKapacitu() throws Exception {
+        MockHttpSession session = this.prihlasRiaditela();
+        int pocetRegalov = this.skladService.regale(Miestnost.SKLAD_TOVARU).size();
+
+        this.mockMvc.perform(post("/riaditel/regale").param("kapacita", "500").session(session))
+                .andExpect(redirectedUrl("/riaditel"))
+                .andExpect(flash().attributeExists("chyba"));
+
+        assertEquals(pocetRegalov, this.skladService.regale(Miestnost.SKLAD_TOVARU).size());
+    }
+
+    @Test
+    void riaditelNemozeOdstranitRegalMalehoSkladu() throws Exception {
+        MockHttpSession session = this.prihlasRiaditela();
+        Long regalId = this.skladService.regale(Miestnost.PRIJEM_TOVARU).get(0).getId();
+
+        this.mockMvc.perform(post("/riaditel/regale/" + regalId + "/odstranenie").session(session))
+                .andExpect(redirectedUrl("/riaditel"))
+                .andExpect(flash().attributeExists("chyba"));
+
+        assertEquals(1, this.skladService.regale(Miestnost.PRIJEM_TOVARU).size());
+        this.mockMvc.perform(get("/riaditel").session(session))
+                .andExpect(content().string(not(containsString("/riaditel/regale/" + regalId + "/odstranenie"))));
+    }
+
+    @Test
+    void apiPouzivaSessionZPrihlasenia() throws Exception {
+        this.mockMvc.perform(get("/api/riaditel/pracovnici"))
+                .andExpect(status().isUnauthorized());
+
+        this.mockMvc.perform(get("/api/riaditel/pracovnici").session(this.prihlasRiaditela()))
+                .andExpect(status().isOk());
+    }
+
+    private MockHttpSession prihlasRiaditela() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        this.mockMvc.perform(post("/prihlasenie/riaditel").param("id", "123").session(session))
+                .andExpect(redirectedUrl("/riaditel"));
+        return session;
+    }
+
     private MockHttpSession prihlasZakaznika(String id, String meno, String priezvisko) throws Exception {
         MockHttpSession session = new MockHttpSession();
         this.mockMvc.perform(post("/prihlasenie/zakaznik")

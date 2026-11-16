@@ -14,6 +14,10 @@ import warehouse.domain.NenajdenaEntitaException;
 import warehouse.domain.NeplatnaOperaciaException;
 import warehouse.service.SkladService;
 import warehouse.web.api.DtoMapper;
+import warehouse.web.api.dto.VlozitTovarRequest;
+import warehouse.web.api.dto.ZakaznikRequest;
+
+import java.util.Optional;
 
 /**
  * Obrazovky zakaznika.
@@ -24,15 +28,18 @@ import warehouse.web.api.DtoMapper;
 public class ZakaznikViewController {
     private final SkladService skladService;
     private final DtoMapper mapper;
+    private final FormularValidator validator;
 
     /**
-     * Vytvori kontroler so servisom a mapovacom.
+     * Vytvori kontroler so servisom, mapovacom a validatorom formularov.
      * @param skladService servis skladu
      * @param mapper prevodnik na DTO
+     * @param validator validator formularov
      */
-    public ZakaznikViewController(SkladService skladService, DtoMapper mapper) {
+    public ZakaznikViewController(SkladService skladService, DtoMapper mapper, FormularValidator validator) {
         this.skladService = skladService;
         this.mapper = mapper;
+        this.validator = validator;
     }
 
     /**
@@ -66,13 +73,18 @@ public class ZakaznikViewController {
                             @RequestParam String prijemcaId, @RequestParam String prijemcaMeno,
                             @RequestParam String prijemcaPriezvisko, HttpSession session,
                             RedirectAttributes attributes) {
-        ZakaznikInfo odosielatel = new ZakaznikInfo(
+        ZakaznikRequest odosielatel = new ZakaznikRequest(
                 (String) session.getAttribute(SessionKluce.IDENTITA),
                 (String) session.getAttribute(SessionKluce.MENO),
                 (String) session.getAttribute(SessionKluce.PRIEZVISKO));
+        ZakaznikRequest prijemca = new ZakaznikRequest(prijemcaId, prijemcaMeno, prijemcaPriezvisko);
+        Optional<String> chyby = this.validator.chyby(new VlozitTovarRequest(id, nazov, vaha, odosielatel, prijemca));
+        if (chyby.isPresent()) {
+            attributes.addFlashAttribute("chyba", chyby.get());
+            return "redirect:/zakaznik";
+        }
         try {
-            this.skladService.vytvorTovar(id, nazov, vaha, odosielatel,
-                    new ZakaznikInfo(prijemcaId, prijemcaMeno, prijemcaPriezvisko));
+            this.skladService.vytvorTovar(id, nazov, vaha, naZakaznika(odosielatel), naZakaznika(prijemca));
             attributes.addFlashAttribute("sprava", "Tovar bol ulozeny.");
         } catch (NeplatnaOperaciaException e) {
             attributes.addFlashAttribute("chyba", e.getMessage());
@@ -96,5 +108,9 @@ public class ZakaznikViewController {
             attributes.addFlashAttribute("chyba", e.getMessage());
         }
         return "redirect:/zakaznik";
+    }
+
+    private static ZakaznikInfo naZakaznika(ZakaznikRequest zakaznik) {
+        return new ZakaznikInfo(zakaznik.id(), zakaznik.meno(), zakaznik.priezvisko());
     }
 }

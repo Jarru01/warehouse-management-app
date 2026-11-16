@@ -17,9 +17,9 @@
     </a>
     <div class="topbar-meta">
         <span class="badge" th:if="${sekcia}" th:text="${sekcia}">Rola</span>
-        <span class="topbar-user" th:if="${session.meno}"
-              th:text="${session.meno} + ' ' + (${session.priezvisko} ?: '')">Meno</span>
-        <form class="inline" method="post" th:action="@{/odhlasenie}" th:if="${session.meno}">
+        <span class="topbar-user" th:if="${pouzivatel}"
+              th:text="${pouzivatel.meno} + ' ' + ${pouzivatel.priezvisko}">Meno</span>
+        <form class="inline" method="post" th:action="@{/odhlasenie}" th:if="${pouzivatel}">
             <button type="submit" class="btn btn-ghost btn-sm">Prepnúť používateľa</button>
         </form>
     </div>

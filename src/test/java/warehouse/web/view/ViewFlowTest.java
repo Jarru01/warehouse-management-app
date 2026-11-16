@@ -1,7 +1,9 @@
 package warehouse.web.view;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.mock.web.MockHttpSession;
@@ -9,8 +11,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import warehouse.AbstractIntegrationTest;
 import warehouse.domain.Miestnost;
-import warehouse.repository.TovarRepository;
 import warehouse.domain.NenajdenaEntitaException;
+import warehouse.repository.TovarRepository;
+import warehouse.security.Rola;
 import warehouse.service.SkladService;
 
 import static org.hamcrest.Matchers.containsString;
@@ -18,10 +21,12 @@ import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -29,6 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Transactional
 class ViewFlowTest extends AbstractIntegrationTest {
+    private static final String HESLO = "testovacie-heslo";
 
     @Autowired
     private MockMvc mockMvc;
@@ -39,6 +45,15 @@ class ViewFlowTest extends AbstractIntegrationTest {
     @Autowired
     private TovarRepository tovarRepository;
 
+    @Value("${warehouse.riaditel.heslo}")
+    private String hesloRiaditela;
+
+    @BeforeEach
+    void zaregistrujZakaznikov() {
+        this.skladService.registrujZakaznika("10", "Jan", "Novy", HESLO);
+        this.skladService.registrujZakaznika("20", "Peter", "Novak", HESLO);
+    }
+
     @Test
     void uvodnaStrankaZobrazujeRoloveTabyAIbaJednuFormu() throws Exception {
         this.mockMvc.perform(get("/"))
@@ -46,20 +61,23 @@ class ViewFlowTest extends AbstractIntegrationTest {
                 .andExpect(content().string(containsString("Riaditeľ")))
                 .andExpect(content().string(containsString("Pracovník")))
                 .andExpect(content().string(containsString("Zákazník")))
-                .andExpect(content().string(containsString("/prihlasenie/riaditel")))
-                .andExpect(content().string(not(containsString("/prihlasenie/zakaznik"))));
+                .andExpect(content().string(containsString("value=\"RIADITEL\"")))
+                .andExpect(content().string(containsString("type=\"password\"")))
+                .andExpect(content().string(containsString("name=\"_csrf\"")))
+                .andExpect(content().string(not(containsString("/registracia"))));
     }
 
     @Test
-    void vyberRolyZakaznikZobrazujeIbaJehoFormu() throws Exception {
+    void vyberRolyZakaznikZobrazujePrihlasenieARegistraciu() throws Exception {
         this.mockMvc.perform(get("/").param("rola", "zakaznik"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("/prihlasenie/zakaznik")))
-                .andExpect(content().string(not(containsString("/prihlasenie/riaditel"))));
+                .andExpect(content().string(containsString("value=\"ZAKAZNIK\"")))
+                .andExpect(content().string(containsString("/registracia")))
+                .andExpect(content().string(not(containsString("value=\"RIADITEL\""))));
     }
 
     @Test
-    void neopravnenyPristupPresmerujeNaUvod() throws Exception {
+    void neprihlasenyPristupPresmerujeNaPrihlasenie() throws Exception {
         this.mockMvc.perform(get("/pracovnik"))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/"));
@@ -67,11 +85,7 @@ class ViewFlowTest extends AbstractIntegrationTest {
 
     @Test
     void riaditelSaPrihlasiAVidiPanel() throws Exception {
-        MockHttpSession session = new MockHttpSession();
-
-        this.mockMvc.perform(post("/prihlasenie/riaditel").param("id", "123").session(session))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/riaditel"));
+        MockHttpSession session = this.prihlas(Rola.RIADITEL, "123", this.hesloRiaditela);
 
         this.mockMvc.perform(get("/riaditel").session(session))
                 .andExpect(status().isOk())
@@ -80,21 +94,56 @@ class ViewFlowTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void nespravnePrihlasenieRiaditelaZobraziChybu() throws Exception {
-        this.mockMvc.perform(post("/prihlasenie/riaditel").param("id", "999"))
+    void nespravneHesloZobraziChybu() throws Exception {
+        this.mockMvc.perform(post("/prihlasenie").with(csrf())
+                        .param("rola", "RIADITEL").param("id", "123").param("heslo", "zle-heslo-123"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/"))
-                .andExpect(flash().attributeExists("chyba"));
+                .andExpect(redirectedUrl("/?rola=riaditel&chyba"));
+
+        this.mockMvc.perform(get("/").param("rola", "riaditel").param("chyba", ""))
+                .andExpect(content().string(containsString("Nespravne ID alebo heslo.")));
+    }
+
+    @Test
+    void samotneIdBezHeslaNestaci() throws Exception {
+        this.mockMvc.perform(post("/prihlasenie").with(csrf()).param("rola", "RIADITEL").param("id", "123"))
+                .andExpect(redirectedUrl("/?rola=riaditel&chyba"));
+    }
+
+    @Test
+    void spravneHesloInejRolyNestaci() throws Exception {
+        this.mockMvc.perform(post("/prihlasenie").with(csrf())
+                        .param("rola", "PRACOVNIK").param("id", "123").param("heslo", this.hesloRiaditela))
+                .andExpect(redirectedUrl("/?rola=pracovnik&chyba"));
+    }
+
+    @Test
+    void prihlasenieBezCsrfTokenuSaOdmietne() throws Exception {
+        MockHttpSession session = new MockHttpSession();
+
+        this.mockMvc.perform(post("/prihlasenie").session(session)
+                        .param("rola", "RIADITEL").param("id", "123").param("heslo", this.hesloRiaditela))
+                .andExpect(redirectedUrl("/"));
+
+        this.mockMvc.perform(get("/riaditel").session(session))
+                .andExpect(redirectedUrl("/"));
+    }
+
+    @Test
+    void odhlasenieUkonciPrihlasenie() throws Exception {
+        MockHttpSession session = this.prihlas(Rola.RIADITEL, "123", this.hesloRiaditela);
+
+        this.mockMvc.perform(post("/odhlasenie").with(csrf()).session(session))
+                .andExpect(redirectedUrl("/"));
+
+        this.mockMvc.perform(get("/riaditel").session(session))
+                .andExpect(redirectedUrl("/"));
     }
 
     @Test
     void pracovnikSaPrihlasiAVidiSvojuMiestnost() throws Exception {
-        this.skladService.prijmiPracovnika("1", "Peter", "Novak");
-        MockHttpSession session = new MockHttpSession();
-
-        this.mockMvc.perform(post("/prihlasenie/pracovnik").param("id", "1").session(session))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/pracovnik"));
+        this.skladService.prijmiPracovnika("1", "Peter", "Novak", HESLO);
+        MockHttpSession session = this.prihlas(Rola.PRACOVNIK, "1", HESLO);
 
         this.mockMvc.perform(get("/pracovnik").session(session))
                 .andExpect(status().isOk())
@@ -103,10 +152,42 @@ class ViewFlowTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void zakaznikVloziTovarCezFormular() throws Exception {
-        MockHttpSession session = this.prihlasZakaznika("10", "Jan", "Novy");
+    void pracovnikNemozeOtvoritPanelRiaditela() throws Exception {
+        this.skladService.prijmiPracovnika("1", "Peter", "Novak", HESLO);
+        MockHttpSession session = this.prihlas(Rola.PRACOVNIK, "1", HESLO);
 
-        this.mockMvc.perform(post("/zakaznik/tovar")
+        this.mockMvc.perform(get("/riaditel").session(session))
+                .andExpect(redirectedUrl("/"));
+    }
+
+    @Test
+    void zakaznikSaZaregistrujeAPrihlasi() throws Exception {
+        this.mockMvc.perform(post("/registracia").with(csrf())
+                        .param("id", "30").param("meno", "Eva").param("priezvisko", "Mala").param("heslo", HESLO))
+                .andExpect(redirectedUrl("/?rola=zakaznik"))
+                .andExpect(flash().attributeExists("sprava"));
+
+        MockHttpSession session = this.prihlas(Rola.ZAKAZNIK, "30", HESLO);
+        this.mockMvc.perform(get("/zakaznik").session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Eva")));
+    }
+
+    @Test
+    void registraciaSKratkymHeslomZlyha() throws Exception {
+        this.mockMvc.perform(post("/registracia").with(csrf())
+                        .param("id", "30").param("meno", "Eva").param("priezvisko", "Mala").param("heslo", "kratke"))
+                .andExpect(redirectedUrl("/?rola=zakaznik"))
+                .andExpect(flash().attribute("chyba", containsString("Heslo musi mat 8 az 72 znakov.")));
+
+        assertThrows(NenajdenaEntitaException.class, () -> this.skladService.zakaznik("30"));
+    }
+
+    @Test
+    void zakaznikVloziTovarCezFormular() throws Exception {
+        MockHttpSession session = this.prihlas(Rola.ZAKAZNIK, "10", HESLO);
+
+        this.mockMvc.perform(post("/zakaznik/tovar").with(csrf())
                         .param("id", "100")
                         .param("nazov", "Tovar100")
                         .param("vaha", "500")
@@ -115,40 +196,42 @@ class ViewFlowTest extends AbstractIntegrationTest {
                         .param("prijemcaPriezvisko", "Novak")
                         .session(session))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/zakaznik"));
+                .andExpect(redirectedUrl("/zakaznik"))
+                .andExpect(flash().attributeExists("sprava"));
 
         assertEquals(Miestnost.PRIJEM_TOVARU, this.skladService.tovar("100").getRegal().getMiestnost().getKluc());
+        assertEquals("10", this.skladService.tovar("100").getOdosielatel().getId());
     }
 
     @Test
     void kompletnyTokOdVlozeniaPoVyzdvihnutie() throws Exception {
-        this.skladService.prijmiPracovnika("1", "Peter", "Novak");
-        MockHttpSession zakaznikSession = this.prihlasZakaznika("10", "Jan", "Novy");
-        MockHttpSession prijemcaSession = this.prihlasZakaznika("20", "Peter", "Novak");
-        MockHttpSession pracovnikSession = this.prihlasPracovnika("1");
+        this.skladService.prijmiPracovnika("1", "Peter", "Novak", HESLO);
+        MockHttpSession zakaznikSession = this.prihlas(Rola.ZAKAZNIK, "10", HESLO);
+        MockHttpSession prijemcaSession = this.prihlas(Rola.ZAKAZNIK, "20", HESLO);
+        MockHttpSession pracovnikSession = this.prihlas(Rola.PRACOVNIK, "1", HESLO);
 
-        this.mockMvc.perform(post("/zakaznik/tovar")
+        this.mockMvc.perform(post("/zakaznik/tovar").with(csrf())
                         .param("id", "100").param("nazov", "Tovar100").param("vaha", "500")
                         .param("prijemcaId", "20").param("prijemcaMeno", "Peter").param("prijemcaPriezvisko", "Novak")
                         .session(zakaznikSession))
                 .andExpect(redirectedUrl("/zakaznik"));
 
-        this.mockMvc.perform(post("/pracovnik/presun").param("miestnost", Miestnost.PRIJEM_TOVARU)
+        this.mockMvc.perform(post("/pracovnik/presun").with(csrf()).param("miestnost", Miestnost.PRIJEM_TOVARU)
                         .session(pracovnikSession))
                 .andExpect(redirectedUrl("/pracovnik"));
-        this.mockMvc.perform(post("/pracovnik/zober").param("tovarId", "100").session(pracovnikSession))
+        this.mockMvc.perform(post("/pracovnik/zober").with(csrf()).param("tovarId", "100").session(pracovnikSession))
                 .andExpect(redirectedUrl("/pracovnik"));
-        this.mockMvc.perform(post("/pracovnik/presun").param("miestnost", Miestnost.VYDAJ_TOVARU)
+        this.mockMvc.perform(post("/pracovnik/presun").with(csrf()).param("miestnost", Miestnost.VYDAJ_TOVARU)
                         .session(pracovnikSession))
                 .andExpect(redirectedUrl("/pracovnik"));
-        this.mockMvc.perform(post("/pracovnik/uloz").session(pracovnikSession))
+        this.mockMvc.perform(post("/pracovnik/uloz").with(csrf()).session(pracovnikSession))
                 .andExpect(redirectedUrl("/pracovnik"));
 
         this.mockMvc.perform(get("/zakaznik").session(prijemcaSession))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Tovar100")));
 
-        this.mockMvc.perform(post("/zakaznik/vyzdvihnutie/100").session(prijemcaSession))
+        this.mockMvc.perform(post("/zakaznik/vyzdvihnutie/100").with(csrf()).session(prijemcaSession))
                 .andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/zakaznik"));
 
@@ -158,9 +241,9 @@ class ViewFlowTest extends AbstractIntegrationTest {
 
     @Test
     void zakaznikSoZapornouVahouDostaneChybu() throws Exception {
-        MockHttpSession session = this.prihlasZakaznika("10", "Jan", "Novy");
+        MockHttpSession session = this.prihlas(Rola.ZAKAZNIK, "10", HESLO);
 
-        this.mockMvc.perform(post("/zakaznik/tovar")
+        this.mockMvc.perform(post("/zakaznik/tovar").with(csrf())
                         .param("id", "100").param("nazov", "Tovar100").param("vaha", "-5")
                         .param("prijemcaId", "20").param("prijemcaMeno", "Peter").param("prijemcaPriezvisko", "Novak")
                         .session(session))
@@ -172,10 +255,11 @@ class ViewFlowTest extends AbstractIntegrationTest {
 
     @Test
     void riaditelNemozePrijatPracovnikaSNeplatnymMenom() throws Exception {
-        MockHttpSession session = this.prihlasRiaditela();
+        MockHttpSession session = this.prihlas(Rola.RIADITEL, "123", this.hesloRiaditela);
 
-        this.mockMvc.perform(post("/riaditel/pracovnici")
-                        .param("id", "7").param("meno", "").param("priezvisko", "Novak").session(session))
+        this.mockMvc.perform(post("/riaditel/pracovnici").with(csrf())
+                        .param("id", "7").param("meno", "").param("priezvisko", "Novak").param("heslo", HESLO)
+                        .session(session))
                 .andExpect(redirectedUrl("/riaditel"))
                 .andExpect(flash().attribute("chyba", containsString("Meno je povinne.")));
 
@@ -183,11 +267,24 @@ class ViewFlowTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void riaditelPrijmePracovnikaKtorySaPrihlasi() throws Exception {
+        MockHttpSession session = this.prihlas(Rola.RIADITEL, "123", this.hesloRiaditela);
+
+        this.mockMvc.perform(post("/riaditel/pracovnici").with(csrf())
+                        .param("id", "7").param("meno", "Ivan").param("priezvisko", "Novy").param("heslo", HESLO)
+                        .session(session))
+                .andExpect(redirectedUrl("/riaditel"))
+                .andExpect(flash().attributeExists("sprava"));
+
+        this.prihlas(Rola.PRACOVNIK, "7", HESLO);
+    }
+
+    @Test
     void riaditelNemozePridatRegalNadMaximalnuKapacitu() throws Exception {
-        MockHttpSession session = this.prihlasRiaditela();
+        MockHttpSession session = this.prihlas(Rola.RIADITEL, "123", this.hesloRiaditela);
         int pocetRegalov = this.skladService.regale(Miestnost.SKLAD_TOVARU).size();
 
-        this.mockMvc.perform(post("/riaditel/regale").param("kapacita", "500").session(session))
+        this.mockMvc.perform(post("/riaditel/regale").with(csrf()).param("kapacita", "500").session(session))
                 .andExpect(redirectedUrl("/riaditel"))
                 .andExpect(flash().attributeExists("chyba"));
 
@@ -196,10 +293,10 @@ class ViewFlowTest extends AbstractIntegrationTest {
 
     @Test
     void riaditelNemozeOdstranitRegalMalehoSkladu() throws Exception {
-        MockHttpSession session = this.prihlasRiaditela();
+        MockHttpSession session = this.prihlas(Rola.RIADITEL, "123", this.hesloRiaditela);
         Long regalId = this.skladService.regale(Miestnost.PRIJEM_TOVARU).get(0).getId();
 
-        this.mockMvc.perform(post("/riaditel/regale/" + regalId + "/odstranenie").session(session))
+        this.mockMvc.perform(post("/riaditel/regale/" + regalId + "/odstranenie").with(csrf()).session(session))
                 .andExpect(redirectedUrl("/riaditel"))
                 .andExpect(flash().attributeExists("chyba"));
 
@@ -211,31 +308,27 @@ class ViewFlowTest extends AbstractIntegrationTest {
     @Test
     void apiPouzivaSessionZPrihlasenia() throws Exception {
         this.mockMvc.perform(get("/api/riaditel/pracovnici"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
 
-        this.mockMvc.perform(get("/api/riaditel/pracovnici").session(this.prihlasRiaditela()))
+        this.mockMvc.perform(get("/api/riaditel/pracovnici")
+                        .session(this.prihlas(Rola.RIADITEL, "123", this.hesloRiaditela)))
                 .andExpect(status().isOk());
     }
 
-    private MockHttpSession prihlasRiaditela() throws Exception {
-        MockHttpSession session = new MockHttpSession();
-        this.mockMvc.perform(post("/prihlasenie/riaditel").param("id", "123").session(session))
-                .andExpect(redirectedUrl("/riaditel"));
-        return session;
+    @Test
+    void apiVratiCsrfToken() throws Exception {
+        this.mockMvc.perform(get("/api/csrf"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.headerName").value("X-CSRF-TOKEN"))
+                .andExpect(jsonPath("$.token").isNotEmpty());
     }
 
-    private MockHttpSession prihlasZakaznika(String id, String meno, String priezvisko) throws Exception {
+    private MockHttpSession prihlas(Rola rola, String id, String heslo) throws Exception {
         MockHttpSession session = new MockHttpSession();
-        this.mockMvc.perform(post("/prihlasenie/zakaznik")
-                        .param("id", id).param("meno", meno).param("priezvisko", priezvisko).session(session))
-                .andExpect(redirectedUrl("/zakaznik"));
-        return session;
-    }
-
-    private MockHttpSession prihlasPracovnika(String id) throws Exception {
-        MockHttpSession session = new MockHttpSession();
-        this.mockMvc.perform(post("/prihlasenie/pracovnik").param("id", id).session(session))
-                .andExpect(redirectedUrl("/pracovnik"));
+        this.mockMvc.perform(post("/prihlasenie").with(csrf()).session(session)
+                        .param("rola", rola.name()).param("id", id).param("heslo", heslo))
+                .andExpect(redirectedUrl(rola.getDomovskaStranka()));
         return session;
     }
 }

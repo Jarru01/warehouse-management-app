@@ -1,8 +1,10 @@
 package warehouse.service;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import warehouse.AbstractIntegrationTest;
 import warehouse.domain.Miestnost;
@@ -18,12 +20,14 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @Transactional
 class SkladServiceTest extends AbstractIntegrationTest {
+    private static final String HESLO = "testovacie-heslo";
 
     @Autowired
     private SkladService skladService;
@@ -31,19 +35,61 @@ class SkladServiceTest extends AbstractIntegrationTest {
     @Autowired
     private TovarRepository tovarRepository;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @BeforeEach
+    void zaregistrujZakaznikov() {
+        this.skladService.registrujZakaznika("10", "Jan", "Novy", HESLO);
+        this.skladService.registrujZakaznika("20", "Peter", "Novak", HESLO);
+    }
+
+    @Test
+    void hesloPracovnikaSaUkladaIbaAkoHash() {
+        Pracovnik pracovnik = this.skladService.prijmiPracovnika("1", "Peter", "Novak", HESLO);
+
+        assertNotEquals(HESLO, pracovnik.getHesloHash());
+        assertTrue(this.passwordEncoder.matches(HESLO, pracovnik.getHesloHash()));
+    }
+
+    @Test
+    void kratkeHesloSaOdmietne() {
+        assertThrows(NeplatnaOperaciaException.class,
+                () -> this.skladService.prijmiPracovnika("1", "Peter", "Novak", "kratke"));
+        assertThrows(NeplatnaOperaciaException.class,
+                () -> this.skladService.registrujZakaznika("30", "Eva", "Mala", "kratke"));
+    }
+
+    @Test
+    void duplicitnaRegistraciaZakaznikaZlyha() {
+        assertThrows(NeplatnaOperaciaException.class,
+                () -> this.skladService.registrujZakaznika("10", "Iny", "Clovek", HESLO));
+        assertEquals("Jan", this.skladService.zakaznik("10").getMeno());
+    }
+
+    @Test
+    void tovarPreNeregistrovanehoPrijemcuSaOdmietne() {
+        assertThrows(NeplatnaOperaciaException.class, () -> this.skladService.vytvorTovar("100", "Tovar100", 100,
+                new ZakaznikInfo("10", "Jan", "Novy"), new ZakaznikInfo("99", "Nikto", "Neznamy")));
+        assertThrows(NeplatnaOperaciaException.class, () -> this.skladService.vytvorTovar("100", "Tovar100", 100,
+                new ZakaznikInfo("10", "Jan", "Novy"), new ZakaznikInfo("20", "Ine", "Meno")));
+
+        assertFalse(this.tovarRepository.existsById("100"));
+    }
+
     @Test
     void prijmiPracovnikaUmiestniHoDoSkladuTovaru() {
-        Pracovnik pracovnik = this.skladService.prijmiPracovnika("1", "Peter", "Novak");
+        Pracovnik pracovnik = this.skladService.prijmiPracovnika("1", "Peter", "Novak", HESLO);
 
         assertEquals(Miestnost.SKLAD_TOVARU, pracovnik.getMiestnost().getKluc());
         assertThrows(NeplatnaOperaciaException.class,
-                () -> this.skladService.prijmiPracovnika("1", "Druhy", "Pracovnik"));
+                () -> this.skladService.prijmiPracovnika("1", "Druhy", "Pracovnik", HESLO));
     }
 
     @Test
     void pracovnikZoberieTovarAPresunieHoMedziMiestnostami() {
         this.vytvorTovar("100");
-        this.skladService.prijmiPracovnika("1", "Peter", "Novak");
+        this.skladService.prijmiPracovnika("1", "Peter", "Novak", HESLO);
         this.skladService.presunPracovnika("1", Miestnost.PRIJEM_TOVARU);
 
         this.skladService.zoberTovar("1", "100");
@@ -65,7 +111,7 @@ class SkladServiceTest extends AbstractIntegrationTest {
     @Test
     void pracovnikNemozeZobratTovarMimoSvojejMiestnosti() {
         this.vytvorTovar("100");
-        this.skladService.prijmiPracovnika("1", "Peter", "Novak");
+        this.skladService.prijmiPracovnika("1", "Peter", "Novak", HESLO);
 
         assertThrows(NeplatnaOperaciaException.class, () -> this.skladService.zoberTovar("1", "100"));
     }
@@ -102,7 +148,7 @@ class SkladServiceTest extends AbstractIntegrationTest {
     @Test
     void vyluceniePracovnikaUloziJehoTovar() {
         this.vytvorTovar("100");
-        this.skladService.prijmiPracovnika("1", "Peter", "Novak");
+        this.skladService.prijmiPracovnika("1", "Peter", "Novak", HESLO);
         this.skladService.presunPracovnika("1", Miestnost.PRIJEM_TOVARU);
         this.skladService.zoberTovar("1", "100");
 
@@ -117,7 +163,7 @@ class SkladServiceTest extends AbstractIntegrationTest {
     @Test
     void vyluceniePracovnikaBezVolnehoMiestaZlyha() {
         this.vytvorTovar("100");
-        this.skladService.prijmiPracovnika("1", "Peter", "Novak");
+        this.skladService.prijmiPracovnika("1", "Peter", "Novak", HESLO);
         this.skladService.presunPracovnika("1", Miestnost.PRIJEM_TOVARU);
         this.skladService.zoberTovar("1", "100");
         this.skladService.presunPracovnika("1", Miestnost.SKLAD_TOVARU);
@@ -131,7 +177,7 @@ class SkladServiceTest extends AbstractIntegrationTest {
     void odstranenieNePrazdnehoRegaluZlyha() {
         Regal regal = this.skladService.pridajRegal(3);
         this.vytvorTovar("100");
-        this.skladService.prijmiPracovnika("1", "Peter", "Novak");
+        this.skladService.prijmiPracovnika("1", "Peter", "Novak", HESLO);
         this.skladService.presunPracovnika("1", Miestnost.PRIJEM_TOVARU);
         this.skladService.zoberTovar("1", "100");
         this.skladService.presunPracovnika("1", Miestnost.SKLAD_TOVARU);
@@ -163,7 +209,7 @@ class SkladServiceTest extends AbstractIntegrationTest {
     }
 
     private void presunTovaruDoVydaja(String tovarId) {
-        this.skladService.prijmiPracovnika("1", "Mover", "Tester");
+        this.skladService.prijmiPracovnika("1", "Mover", "Tester", HESLO);
         this.skladService.presunPracovnika("1", Miestnost.PRIJEM_TOVARU);
         this.skladService.zoberTovar("1", tovarId);
         this.skladService.presunPracovnika("1", Miestnost.VYDAJ_TOVARU);

@@ -1,6 +1,7 @@
 package warehouse.service;
 
 import org.springframework.data.domain.Sort;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import warehouse.domain.Miestnost;
@@ -11,13 +12,16 @@ import warehouse.domain.Regal;
 import warehouse.domain.Riaditel;
 import warehouse.domain.Tovar;
 import warehouse.domain.TypMiestnosti;
+import warehouse.domain.Zakaznik;
 import warehouse.domain.ZakaznikInfo;
 import warehouse.repository.MiestnostRepository;
 import warehouse.repository.PracovnikRepository;
 import warehouse.repository.RegalRepository;
 import warehouse.repository.RiaditelRepository;
 import warehouse.repository.TovarRepository;
+import warehouse.repository.ZakaznikRepository;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -28,28 +32,40 @@ import java.util.Set;
  */
 @Service
 public class SkladService {
+    /** Najmensia dlzka hesla v znakoch. */
+    public static final int MIN_DLZKA_HESLA = 8;
+    /** Najvacsia dlzka hesla v bajtoch UTF-8, viac BCrypt nespracuje. */
+    public static final int MAX_BAJTOV_HESLA = 72;
+
     private final MiestnostRepository miestnostRepository;
     private final RegalRepository regalRepository;
     private final TovarRepository tovarRepository;
     private final PracovnikRepository pracovnikRepository;
     private final RiaditelRepository riaditelRepository;
+    private final ZakaznikRepository zakaznikRepository;
+    private final PasswordEncoder passwordEncoder;
 
     /**
-     * Vytvori servis s potrebnymi repozitarmi.
+     * Vytvori servis s potrebnymi repozitarmi a kodovacom hesiel.
      * @param miestnostRepository repozitar miestnosti
      * @param regalRepository repozitar regalov
      * @param tovarRepository repozitar tovaru
      * @param pracovnikRepository repozitar pracovnikov
      * @param riaditelRepository repozitar riaditelov
+     * @param zakaznikRepository repozitar zakaznikov
+     * @param passwordEncoder kodovac hesiel
      */
     public SkladService(MiestnostRepository miestnostRepository, RegalRepository regalRepository,
                         TovarRepository tovarRepository, PracovnikRepository pracovnikRepository,
-                        RiaditelRepository riaditelRepository) {
+                        RiaditelRepository riaditelRepository, ZakaznikRepository zakaznikRepository,
+                        PasswordEncoder passwordEncoder) {
         this.miestnostRepository = miestnostRepository;
         this.regalRepository = regalRepository;
         this.tovarRepository = tovarRepository;
         this.pracovnikRepository = pracovnikRepository;
         this.riaditelRepository = riaditelRepository;
+        this.zakaznikRepository = zakaznikRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     /**
@@ -145,20 +161,51 @@ public class SkladService {
     }
 
     /**
-     * Prijme noveho pracovnika a umiestni ho do hlavneho skladu tovaru.
+     * Vrati registrovaneho zakaznika s danym id alebo vyhodi vynimku.
+     * @param id id zakaznika
+     * @return zakaznik
+     */
+    @Transactional(readOnly = true)
+    public Zakaznik zakaznik(String id) {
+        return this.zakaznikRepository.findById(id)
+                .orElseThrow(() -> new NenajdenaEntitaException("Zakaznik " + id + " neexistuje."));
+    }
+
+    /**
+     * Prijme noveho pracovnika s heslom na prihlasenie a umiestni ho do hlavneho skladu tovaru.
      * @param id id pracovnika
      * @param meno meno pracovnika
      * @param priezvisko priezvisko pracovnika
+     * @param heslo heslo pracovnika, ulozi sa iba jeho hash
      * @return prijaty pracovnik
      */
     @Transactional
-    public Pracovnik prijmiPracovnika(String id, String meno, String priezvisko) {
+    public Pracovnik prijmiPracovnika(String id, String meno, String priezvisko, String heslo) {
         if (this.pracovnikRepository.existsById(id)) {
             throw new NeplatnaOperaciaException("Pracovnik so zadanym ID uz existuje.");
         }
         Pracovnik pracovnik = new Pracovnik(id, meno, priezvisko);
+        pracovnik.nastavHesloHash(this.zahesuj(heslo));
         pracovnik.premiestniDo(this.miestnost(Miestnost.SKLAD_TOVARU));
         return this.pracovnikRepository.save(pracovnik);
+    }
+
+    /**
+     * Zaregistruje noveho zakaznika s heslom na prihlasenie.
+     * @param id id zakaznika
+     * @param meno meno zakaznika
+     * @param priezvisko priezvisko zakaznika
+     * @param heslo heslo zakaznika, ulozi sa iba jeho hash
+     * @return registrovany zakaznik
+     */
+    @Transactional
+    public Zakaznik registrujZakaznika(String id, String meno, String priezvisko, String heslo) {
+        if (this.zakaznikRepository.existsById(id)) {
+            throw new NeplatnaOperaciaException("Zakaznik so zadanym ID uz existuje.");
+        }
+        Zakaznik zakaznik = new Zakaznik(id, meno, priezvisko);
+        zakaznik.nastavHesloHash(this.zahesuj(heslo));
+        return this.zakaznikRepository.save(zakaznik);
     }
 
     /**
@@ -252,7 +299,8 @@ public class SkladService {
     }
 
     /**
-     * Zakaznik vytvori tovar, ktory sa ulozi do miestnosti na prijem tovaru.
+     * Zakaznik vytvori tovar, ktory sa ulozi do miestnosti na prijem tovaru. Prijemca musi byt registrovany
+     * zakaznik so zhodnym menom a priezviskom, pri tovare sa ulozia jeho registrovane udaje.
      * @param id id tovaru
      * @param nazov nazov tovaru
      * @param vaha vaha tovaru v gramoch
@@ -265,6 +313,10 @@ public class SkladService {
         if (this.tovarRepository.existsById(id)) {
             throw new NeplatnaOperaciaException("Tovar so zadanym ID uz existuje.");
         }
+        Zakaznik registrovanyPrijemca = this.zakaznikRepository.findById(prijemca.getId())
+                .filter(zakaznik -> zakaznik.getMeno().equalsIgnoreCase(prijemca.getMeno())
+                        && zakaznik.getPriezvisko().equalsIgnoreCase(prijemca.getPriezvisko()))
+                .orElseThrow(() -> new NeplatnaOperaciaException("Prijemca so zadanymi udajmi nie je registrovany."));
         Miestnost prijem = this.miestnost(Miestnost.PRIJEM_TOVARU);
         List<Regal> regale = this.regalRepository.findByMiestnostKlucOrderByIdAsc(prijem.getKluc());
         if (regale.size() != 1) {
@@ -274,7 +326,7 @@ public class SkladService {
         if (this.tovarRepository.countByRegalId(regal.getId()) >= regal.getKapacita()) {
             throw new NeplatnaOperaciaException("Regal v miestnosti na prijem tovaru je plny.");
         }
-        Tovar tovar = new Tovar(id, nazov, vaha, odosielatel, prijemca);
+        Tovar tovar = new Tovar(id, nazov, vaha, odosielatel, registrovanyPrijemca.naInfo());
         tovar.ulozDoRegalu(regal, this.najdiVolnySlot(regal));
         return this.tovarRepository.save(tovar);
     }
@@ -295,6 +347,16 @@ public class SkladService {
             throw new NeplatnaOperaciaException("Tovar nepatri zadanemu zakaznikovi.");
         }
         this.tovarRepository.delete(tovar);
+    }
+
+    private String zahesuj(String heslo) {
+        if (heslo == null || heslo.length() < MIN_DLZKA_HESLA) {
+            throw new NeplatnaOperaciaException("Heslo musi mat aspon " + MIN_DLZKA_HESLA + " znakov.");
+        }
+        if (heslo.getBytes(StandardCharsets.UTF_8).length > MAX_BAJTOV_HESLA) {
+            throw new NeplatnaOperaciaException("Heslo je prilis dlhe.");
+        }
+        return this.passwordEncoder.encode(heslo);
     }
 
     private Regal regal(Long regalId) {

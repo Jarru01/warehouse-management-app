@@ -13,6 +13,7 @@ import warehouse.domain.Pracovnik;
 import warehouse.domain.VelkySklad;
 import warehouse.domain.NenajdenaEntitaException;
 import warehouse.domain.NeplatnaOperaciaException;
+import warehouse.security.SecurityConfig;
 import warehouse.service.SkladService;
 
 import static org.mockito.ArgumentMatchers.anyString;
@@ -24,10 +25,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static warehouse.web.api.ApiPrihlasenie.neprihlaseny;
 import static warehouse.web.api.ApiPrihlasenie.pracovnik;
 
 @WebMvcTest(PracovnikApiController.class)
-@Import(DtoMapper.class)
+@Import({DtoMapper.class, SecurityConfig.class})
 class PracovnikApiControllerTest {
 
     @Autowired
@@ -91,7 +93,7 @@ class PracovnikApiControllerTest {
 
     @Test
     void bezPrihlaseniaVrati401() throws Exception {
-        this.mockMvc.perform(post("/api/pracovnik/1/uloz"))
+        this.mockMvc.perform(post("/api/pracovnik/1/uloz").with(neprihlaseny()))
                 .andExpect(status().isUnauthorized());
 
         then(this.skladService).should(never()).ulozTovar(anyString());

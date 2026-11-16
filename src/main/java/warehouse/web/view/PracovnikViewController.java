@@ -1,6 +1,7 @@
 package warehouse.web.view;
 
 import jakarta.servlet.http.HttpSession;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,6 +12,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import warehouse.domain.Pracovnik;
 import warehouse.domain.NenajdenaEntitaException;
 import warehouse.domain.NeplatnaOperaciaException;
+import warehouse.security.PrihlasenyPouzivatel;
 import warehouse.service.SkladService;
 import warehouse.web.api.DtoMapper;
 import warehouse.web.api.dto.MiestnostResponse;
@@ -39,17 +41,19 @@ public class PracovnikViewController {
     }
 
     /**
-     * Zobrazi panel pracovnika s aktualnou miestnostou a drzanych tovarom.
+     * Zobrazi panel pracovnika s aktualnou miestnostou a drzanych tovarom. Ak bol pracovnik medzicasom
+     * vyluceny, odhlasi ho.
+     * @param pouzivatel prihlaseny pracovnik
      * @param session HTTP session
      * @param attributes flash atributy
      * @param model model sablony
      * @return nazov sablony alebo presmerovanie
      */
     @GetMapping
-    public String panel(HttpSession session, RedirectAttributes attributes, Model model) {
-        String id = (String) session.getAttribute(SessionKluce.IDENTITA);
+    public String panel(@AuthenticationPrincipal PrihlasenyPouzivatel pouzivatel, HttpSession session,
+                        RedirectAttributes attributes, Model model) {
         try {
-            Pracovnik pracovnik = this.skladService.pracovnik(id);
+            Pracovnik pracovnik = this.skladService.pracovnik(pouzivatel.id());
             List<MiestnostResponse> miestnosti = this.skladService.miestnosti().stream()
                     .map(this.mapper::naMiestnost).toList();
             List<RegalResponse> regale = this.skladService.regale(pracovnik.getMiestnost().getKluc()).stream()
@@ -71,15 +75,15 @@ public class PracovnikViewController {
     /**
      * Presunie pracovnika do zvolenej miestnosti.
      * @param miestnost kluc miestnosti
-     * @param session HTTP session
+     * @param pouzivatel prihlaseny pracovnik
      * @param attributes flash atributy
      * @return presmerovanie na panel
      */
     @PostMapping("/presun")
-    public String presun(@RequestParam String miestnost, HttpSession session, RedirectAttributes attributes) {
-        String id = (String) session.getAttribute(SessionKluce.IDENTITA);
+    public String presun(@RequestParam String miestnost, @AuthenticationPrincipal PrihlasenyPouzivatel pouzivatel,
+                         RedirectAttributes attributes) {
         try {
-            this.skladService.presunPracovnika(id, miestnost);
+            this.skladService.presunPracovnika(pouzivatel.id(), miestnost);
             attributes.addFlashAttribute("sprava", "Presun bol vykonany.");
         } catch (NenajdenaEntitaException | NeplatnaOperaciaException e) {
             attributes.addFlashAttribute("chyba", e.getMessage());
@@ -90,15 +94,15 @@ public class PracovnikViewController {
     /**
      * Pracovnik zoberie tovar z aktualnej miestnosti.
      * @param tovarId id tovaru
-     * @param session HTTP session
+     * @param pouzivatel prihlaseny pracovnik
      * @param attributes flash atributy
      * @return presmerovanie na panel
      */
     @PostMapping("/zober")
-    public String zober(@RequestParam String tovarId, HttpSession session, RedirectAttributes attributes) {
-        String id = (String) session.getAttribute(SessionKluce.IDENTITA);
+    public String zober(@RequestParam String tovarId, @AuthenticationPrincipal PrihlasenyPouzivatel pouzivatel,
+                        RedirectAttributes attributes) {
         try {
-            this.skladService.zoberTovar(id, tovarId);
+            this.skladService.zoberTovar(pouzivatel.id(), tovarId);
             attributes.addFlashAttribute("sprava", "Tovar bol zobraty.");
         } catch (NenajdenaEntitaException | NeplatnaOperaciaException e) {
             attributes.addFlashAttribute("chyba", e.getMessage());
@@ -108,15 +112,14 @@ public class PracovnikViewController {
 
     /**
      * Pracovnik ulozi drzany tovar.
-     * @param session HTTP session
+     * @param pouzivatel prihlaseny pracovnik
      * @param attributes flash atributy
      * @return presmerovanie na panel
      */
     @PostMapping("/uloz")
-    public String uloz(HttpSession session, RedirectAttributes attributes) {
-        String id = (String) session.getAttribute(SessionKluce.IDENTITA);
+    public String uloz(@AuthenticationPrincipal PrihlasenyPouzivatel pouzivatel, RedirectAttributes attributes) {
         try {
-            this.skladService.ulozTovar(id);
+            this.skladService.ulozTovar(pouzivatel.id());
             attributes.addFlashAttribute("sprava", "Tovar bol ulozeny.");
         } catch (NenajdenaEntitaException | NeplatnaOperaciaException e) {
             attributes.addFlashAttribute("chyba", e.getMessage());

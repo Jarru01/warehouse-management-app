@@ -10,7 +10,8 @@ manages racks, the **worker** moves between rooms and handles goods, and the
 
 ## 🚀 Features
 
-- **Role-based areas** — session login for director, worker and customer, with URL-pattern access control for both the pages and the REST API.
+- **Secure login** — Spring Security with BCrypt-hashed passwords, CSRF protection and session fixation protection; customers register their own accounts.
+- **Role-based areas** — director, worker and customer areas; pages and REST API check the role, and workers and customers can act only on their own ID.
 - **REST API** — versionless JSON endpoints under `/api` with request DTOs, Bean Validation and RFC 9457 `ProblemDetail` errors.
 - **Warehouse rules** — racks with fixed capacity and numbered slots, hands-full workers, room-bound picking, recipient-checked pickup, safe dismissal of workers holding goods, and protected single racks in the receiving and dispatch rooms.
 - **PostgreSQL persistence** — Spring Data JPA entities and repositories, seeded with a director and three rooms on first start.
@@ -21,7 +22,7 @@ manages racks, the **worker** moves between rooms and handles goods, and the
 | Component | Choice |
 |---|---|
 | Runtime | Java 21 |
-| Framework | Spring Boot 4.1 (Spring MVC, Spring Data JPA) |
+| Framework | Spring Boot 4.1 (Spring MVC, Spring Data JPA, Spring Security 7) |
 | View layer | Thymeleaf |
 | Database | PostgreSQL 17 |
 | Build | Gradle 9 (wrapper included) |
@@ -70,25 +71,33 @@ Stop and reset:
 
 ## 🔑 Login
 
-| Role | Credentials |
-|---|---|
-| Director (`Riaditel`) | ID `123` (seeded on first start) |
-| Worker (`Pracovnik`) | ID created by the director |
-| Customer (`Zakaznik`) | ID, first name and last name (identity is asserted, no password) |
+Every role logs in with an ID and a password on the start page.
 
-Session login is intentionally simple for this project; Spring Security with
-passwords and CSRF protection is a possible future step.
+| Role | Account |
+|---|---|
+| Director (`Riaditel`) | ID `123`, seeded on first start. Its initial password comes from `warehouse.riaditel.heslo` (local value in `application.yml`). |
+| Worker (`Pracovnik`) | Created by the director, who sets the initial password. |
+| Customer (`Zakaznik`) | Registers on the customer tab with an ID, name and password. |
+
+Passwords must have 8 to 72 characters and are stored only as BCrypt hashes.
+Goods can be sent only to a registered customer whose ID, first name and last
+name match.
+
+**Upgrading an existing database:** the director gets the configured password
+on the next start. Workers hired before passwords existed cannot log in; the
+director dismisses and re-hires them with a password.
 
 ## 🔌 REST API
 
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/status` | Application and database status |
+| GET | `/api/csrf` | CSRF token for the current session |
 | GET | `/api/miestnosti` | List rooms |
 | GET | `/api/miestnosti/{kluc}/regale` | Racks and their items in a room |
 | GET | `/api/riaditel/{id}` | Director profile |
 | GET | `/api/riaditel/pracovnici` | List workers |
-| POST | `/api/riaditel/pracovnici` | Hire a worker (`id`, `meno`, `priezvisko`) |
+| POST | `/api/riaditel/pracovnici` | Hire a worker (`id`, `meno`, `priezvisko`, `heslo`) |
 | DELETE | `/api/riaditel/pracovnici/{id}` | Dismiss a worker |
 | POST | `/api/riaditel/regale` | Add a rack to the main warehouse (`kapacita`) |
 | DELETE | `/api/riaditel/regale/{id}` | Remove an empty rack |
@@ -99,13 +108,15 @@ passwords and CSRF protection is a possible future step.
 | POST | `/api/zakaznik/tovar` | Deposit an item (`id`, `nazov`, `vaha`, `odosielatel`, `prijemca`) |
 | POST | `/api/zakaznik/{zakaznikId}/vyzdvihnutie/{tovarId}` | Pick up an item ready for release |
 
-The API uses the same session as the pages: log in through the matching
-`/prihlasenie/...` form endpoint first and send the session cookie with every
-call. Access rules:
+The API uses the same login session as the pages. Log in with
+`POST /prihlasenie` (form fields `rola`, `id`, `heslo`), keep the session
+cookie, and send the CSRF token in the `X-CSRF-TOKEN` header with every
+`POST` and `DELETE`. Fetch a fresh token from `/api/csrf` after logging in,
+because login rotates the session. Access rules:
 
 | Path | Allowed |
 |---|---|
-| `/api/status` | everyone |
+| `/api/status`, `/api/csrf` | everyone |
 | `/api/riaditel/**` | director |
 | `/api/pracovnik/{id}/**` | the worker whose ID is `{id}` |
 | `/api/zakaznik/tovar` | a customer, and only as the sender (`odosielatel.id`) |
@@ -113,17 +124,26 @@ call. Access rules:
 | `/api/miestnosti/**` | director and workers |
 
 Errors use `ProblemDetail`: `400` for invalid input, `401` without login,
-`403` for the wrong role or someone else's ID, `404` for unknown entities,
+`403` for the wrong role, someone else's ID or a missing CSRF token, `404` for unknown entities,
 `409` for state conflicts (duplicate ID, full rack, hands full, wrong room,
 wrong recipient, removing the rack of a small room).
 
 Example:
 
 ```bash
-curl -c cookies.txt -d id=123 http://localhost:8080/prihlasenie/riaditel
+# 1. CSRF token for the login form (requires jq)
+TOKEN=$(curl -s -c cookies.txt -b cookies.txt http://localhost:8080/api/csrf | jq -r .token)
+
+# 2. Log in as the director (the password is the one from warehouse.riaditel.heslo)
+curl -s -c cookies.txt -b cookies.txt -o /dev/null \
+  -d rola=RIADITEL -d id=123 --data-urlencode "heslo=$RIADITEL_HESLO" -d "_csrf=$TOKEN" \
+  http://localhost:8080/prihlasenie
+
+# 3. New token for the logged-in session, then call the API
+TOKEN=$(curl -s -c cookies.txt -b cookies.txt http://localhost:8080/api/csrf | jq -r .token)
 curl -b cookies.txt -X POST http://localhost:8080/api/riaditel/pracovnici \
-  -H "Content-Type: application/json" \
-  -d '{"id":"5","meno":"Peter","priezvisko":"Novak"}'
+  -H "Content-Type: application/json" -H "X-CSRF-TOKEN: $TOKEN" \
+  -d '{"id":"5","meno":"Peter","priezvisko":"Novak","heslo":"zmen-ma-123"}'
 ```
 
 ## 🧰 Common Commands
@@ -167,8 +187,9 @@ starts its own disposable PostgreSQL instance.
 | `warehouse.domain` | JPA entities with the warehouse model (`Miestnost`/`VelkySklad`/`MalySklad`, `Regal`, `Tovar`, `Pracovnik`, `Riaditel`, `ZakaznikInfo`) |
 | `warehouse.repository` | Spring Data JPA repositories with fetch-join queries for read models |
 | `warehouse.service` | `SkladService` — all transactional operations and business rules |
-| `warehouse.web.api` | REST controllers, DTOs, mapper, the API role interceptor and the `ProblemDetail` exception handler |
-| `warehouse.web.view` | Thymeleaf controllers, session login, role interceptors and form validation (same DTO rules as the API) |
+| `warehouse.web.api` | REST controllers, DTOs, mapper and the `ProblemDetail` exception handler |
+| `warehouse.web.view` | Thymeleaf controllers, customer registration and form validation (same DTO rules as the API) |
+| `warehouse.security` | Spring Security configuration, login by role, ID and password, access rules |
 | `warehouse.config` | Seed data (`DataInitializer`) |
 
 The class diagram is in [`docs/uml.puml`](docs/uml.puml).
@@ -177,9 +198,11 @@ The class diagram is in [`docs/uml.puml`](docs/uml.puml).
 
 `src/main/resources/application.yml` holds the datasource (default
 `jdbc:postgresql://localhost:5432/sklad`, user and password `warehouse`),
-Hibernate schema handling (`ddl-auto: update`) and the server port (`8080`).
-Every property can be overridden with environment variables, for example
-`SPRING_DATASOURCE_URL` or `SERVER_PORT`.
+Hibernate schema handling (`ddl-auto: update`), the server port (`8080`) and
+the director's initial password (`warehouse.riaditel.heslo`). Every property
+can be overridden with environment variables, for example
+`SPRING_DATASOURCE_URL`, `SERVER_PORT` or `WAREHOUSE_RIADITEL_HESLO`.
 
 Development credentials are placeholders for local use; do not reuse them in
-other environments. Database migrations (Flyway) are a future step.
+other environments. The director's initial password is applied only while the
+director has none. Database migrations (Flyway) are a future step.

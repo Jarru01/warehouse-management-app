@@ -12,6 +12,8 @@ import warehouse.domain.Regal;
 import warehouse.domain.VelkySklad;
 import warehouse.domain.NenajdenaEntitaException;
 import warehouse.domain.NeplatnaOperaciaException;
+import warehouse.security.Rola;
+import warehouse.security.SecurityConfig;
 import warehouse.service.SkladService;
 
 import java.util.List;
@@ -26,11 +28,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static warehouse.web.api.ApiPrihlasenie.bezCsrf;
+import static warehouse.web.api.ApiPrihlasenie.neprihlaseny;
 import static warehouse.web.api.ApiPrihlasenie.pracovnik;
 import static warehouse.web.api.ApiPrihlasenie.riaditel;
 
 @WebMvcTest(RiaditelApiController.class)
-@Import(DtoMapper.class)
+@Import({DtoMapper.class, SecurityConfig.class})
 class RiaditelApiControllerTest {
 
     @Autowired
@@ -41,12 +45,12 @@ class RiaditelApiControllerTest {
 
     @Test
     void prijatiePracovnikaVrati201() throws Exception {
-        given(this.skladService.prijmiPracovnika("5", "Peter", "Novak"))
+        given(this.skladService.prijmiPracovnika("5", "Peter", "Novak", "tajneheslo1"))
                 .willReturn(new Pracovnik("5", "Peter", "Novak"));
 
         this.mockMvc.perform(post("/api/riaditel/pracovnici").with(riaditel())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"id\":\"5\",\"meno\":\"Peter\",\"priezvisko\":\"Novak\"}"))
+                        .content("{\"id\":\"5\",\"meno\":\"Peter\",\"priezvisko\":\"Novak\",\"heslo\":\"tajneheslo1\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value("5"))
                 .andExpect(jsonPath("$.miestnost").doesNotExist());
@@ -67,19 +71,20 @@ class RiaditelApiControllerTest {
 
         this.mockMvc.perform(post("/api/riaditel/pracovnici").with(riaditel())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"id\":\"5\",\"meno\":\"" + dlheMeno + "\",\"priezvisko\":\"Novak\"}"))
+                        .content("{\"id\":\"5\",\"meno\":\"" + dlheMeno
+                                + "\",\"priezvisko\":\"Novak\",\"heslo\":\"tajneheslo1\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.chyby.meno").exists());
     }
 
     @Test
     void konfliktVrati409() throws Exception {
-        given(this.skladService.prijmiPracovnika(anyString(), anyString(), anyString()))
+        given(this.skladService.prijmiPracovnika(anyString(), anyString(), anyString(), anyString()))
                 .willThrow(new NeplatnaOperaciaException("Pracovnik so zadanym ID uz existuje."));
 
         this.mockMvc.perform(post("/api/riaditel/pracovnici").with(riaditel())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"id\":\"5\",\"meno\":\"Peter\",\"priezvisko\":\"Novak\"}"))
+                        .content("{\"id\":\"5\",\"meno\":\"Peter\",\"priezvisko\":\"Novak\",\"heslo\":\"tajneheslo1\"}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.title").value("Neplatna operacia"));
     }
@@ -126,8 +131,26 @@ class RiaditelApiControllerTest {
     }
 
     @Test
+    void kratkeHesloVrati400() throws Exception {
+        this.mockMvc.perform(post("/api/riaditel/pracovnici").with(riaditel())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"id\":\"5\",\"meno\":\"Peter\",\"priezvisko\":\"Novak\",\"heslo\":\"kratke\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.chyby.heslo").exists());
+    }
+
+    @Test
+    void bezCsrfTokenuVrati403() throws Exception {
+        this.mockMvc.perform(delete("/api/riaditel/pracovnici/5").with(bezCsrf(Rola.RIADITEL, "123")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.title").value("Zakazany pristup"));
+
+        then(this.skladService).should(never()).vylucPracovnika(anyString());
+    }
+
+    @Test
     void bezPrihlaseniaVrati401() throws Exception {
-        this.mockMvc.perform(delete("/api/riaditel/pracovnici/5"))
+        this.mockMvc.perform(delete("/api/riaditel/pracovnici/5").with(neprihlaseny()))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.title").value("Neprihlaseny pouzivatel"));
 

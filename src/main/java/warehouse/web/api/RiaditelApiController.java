@@ -68,7 +68,8 @@ public class RiaditelApiController {
     @ResponseStatus(HttpStatus.CREATED)
     public PracovnikResponse prijmiPracovnika(@Valid @RequestBody PrijmoutPracovnikaRequest request) {
         return this.mapper.naPracovnika(
-                this.skladService.prijmiPracovnika(request.id(), request.meno(), request.priezvisko()));
+                this.skladService.prijmiPracovnika(request.id(), request.meno(), request.priezvisko(),
+                        request.heslo()));
     }
 
     /**

@@ -20,18 +20,6 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     /**
-     * Prevedie poziadavku bez prihlasenia na odpoved 401.
-     * @param vynimka vynimka
-     * @return problemovy detail
-     */
-    @ExceptionHandler(NeprihlasenyException.class)
-    public ProblemDetail neprihlaseny(NeprihlasenyException vynimka) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, vynimka.getMessage());
-        problem.setTitle("Neprihlaseny pouzivatel");
-        return problem;
-    }
-
-    /**
      * Prevedie neopravneny pristup na odpoved 403.
      * @param vynimka vynimka
      * @return problemovy detail

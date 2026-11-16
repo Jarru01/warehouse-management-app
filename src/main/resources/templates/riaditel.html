@@ -40,6 +40,12 @@
                     <input id="pracovnik-priezvisko" type="text" name="priezvisko" autocomplete="family-name" required>
                 </div>
             </div>
+            <div class="field">
+                <label for="pracovnik-heslo">Počiatočné heslo</label>
+                <input id="pracovnik-heslo" type="password" name="heslo" autocomplete="new-password"
+                       minlength="8" maxlength="72" required>
+                <span class="hint">Aspoň 8 znakov. Odovzdaj ho pracovníkovi bezpečnou cestou.</span>
+            </div>
             <button type="submit" class="btn btn-primary">Prijat</button>
         </form>
     </section>

@@ -25,10 +25,15 @@
 
     <section class="card" th:if="${rola == 'riaditel'}">
         <h2>Prihlásenie riaditeľa</h2>
-        <form method="post" th:action="@{/prihlasenie/riaditel}">
+        <form method="post" th:action="@{/prihlasenie}">
+            <input type="hidden" name="rola" value="RIADITEL">
             <div class="field">
                 <label for="riaditel-id">ID riaditeľa</label>
-                <input id="riaditel-id" type="text" name="id" inputmode="numeric" autocomplete="off" required autofocus>
+                <input id="riaditel-id" type="text" name="id" inputmode="numeric" autocomplete="username" required autofocus>
+            </div>
+            <div class="field">
+                <label for="riaditel-heslo">Heslo</label>
+                <input id="riaditel-heslo" type="password" name="heslo" autocomplete="current-password" required>
             </div>
             <button type="submit" class="btn btn-primary btn-block">Prihlásiť sa</button>
         </form>
@@ -36,10 +41,15 @@
 
     <section class="card" th:if="${rola == 'pracovnik'}">
         <h2>Prihlásenie pracovníka</h2>
-        <form method="post" th:action="@{/prihlasenie/pracovnik}">
+        <form method="post" th:action="@{/prihlasenie}">
+            <input type="hidden" name="rola" value="PRACOVNIK">
             <div class="field">
                 <label for="pracovnik-id">ID pracovníka</label>
-                <input id="pracovnik-id" type="text" name="id" inputmode="numeric" autocomplete="off" required autofocus>
+                <input id="pracovnik-id" type="text" name="id" inputmode="numeric" autocomplete="username" required autofocus>
+            </div>
+            <div class="field">
+                <label for="pracovnik-heslo">Heslo</label>
+                <input id="pracovnik-heslo" type="password" name="heslo" autocomplete="current-password" required>
             </div>
             <button type="submit" class="btn btn-primary btn-block">Prihlásiť sa</button>
         </form>
@@ -47,20 +57,43 @@
 
     <section class="card" th:if="${rola == 'zakaznik'}">
         <h2>Prihlásenie zákazníka</h2>
-        <form method="post" th:action="@{/prihlasenie/zakaznik}">
+        <form method="post" th:action="@{/prihlasenie}">
+            <input type="hidden" name="rola" value="ZAKAZNIK">
             <div class="field">
                 <label for="zakaznik-id">ID zákazníka</label>
-                <input id="zakaznik-id" type="text" name="id" inputmode="numeric" autocomplete="off" required autofocus>
+                <input id="zakaznik-id" type="text" name="id" inputmode="numeric" autocomplete="username" required autofocus>
             </div>
             <div class="field">
-                <label for="zakaznik-meno">Meno</label>
-                <input id="zakaznik-meno" type="text" name="meno" autocomplete="given-name" required>
-            </div>
-            <div class="field">
-                <label for="zakaznik-priezvisko">Priezvisko</label>
-                <input id="zakaznik-priezvisko" type="text" name="priezvisko" autocomplete="family-name" required>
+                <label for="zakaznik-heslo">Heslo</label>
+                <input id="zakaznik-heslo" type="password" name="heslo" autocomplete="current-password" required>
             </div>
             <button type="submit" class="btn btn-primary btn-block">Prihlásiť sa</button>
+        </form>
+    </section>
+
+    <section class="card" th:if="${rola == 'zakaznik'}">
+        <h2>Registrácia zákazníka</h2>
+        <form method="post" th:action="@{/registracia}">
+            <div class="field">
+                <label for="registracia-id">ID zákazníka</label>
+                <input id="registracia-id" type="text" name="id" inputmode="numeric" autocomplete="off" required>
+                <span class="hint">Číslo, ktorým sa budeš prihlasovať.</span>
+            </div>
+            <div class="field">
+                <label for="registracia-meno">Meno</label>
+                <input id="registracia-meno" type="text" name="meno" autocomplete="given-name" required>
+            </div>
+            <div class="field">
+                <label for="registracia-priezvisko">Priezvisko</label>
+                <input id="registracia-priezvisko" type="text" name="priezvisko" autocomplete="family-name" required>
+            </div>
+            <div class="field">
+                <label for="registracia-heslo">Heslo</label>
+                <input id="registracia-heslo" type="password" name="heslo" autocomplete="new-password"
+                       minlength="8" maxlength="72" required>
+                <span class="hint">Aspoň 8 znakov.</span>
+            </div>
+            <button type="submit" class="btn btn-ghost btn-block">Zaregistrovať sa</button>
         </form>
     </section>
 </main>

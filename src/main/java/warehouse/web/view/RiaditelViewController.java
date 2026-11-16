@@ -82,19 +82,20 @@ public class RiaditelViewController {
      * @param id id pracovnika
      * @param meno meno pracovnika
      * @param priezvisko priezvisko pracovnika
+     * @param heslo pociatocne heslo pracovnika
      * @param attributes flash atributy
      * @return presmerovanie na panel
      */
     @PostMapping("/pracovnici")
     public String prijmiPracovnika(@RequestParam String id, @RequestParam String meno, @RequestParam String priezvisko,
-                                   RedirectAttributes attributes) {
-        Optional<String> chyby = this.validator.chyby(new PrijmoutPracovnikaRequest(id, meno, priezvisko));
+                                   @RequestParam String heslo, RedirectAttributes attributes) {
+        Optional<String> chyby = this.validator.chyby(new PrijmoutPracovnikaRequest(id, meno, priezvisko, heslo));
         if (chyby.isPresent()) {
             attributes.addFlashAttribute("chyba", chyby.get());
             return "redirect:/riaditel";
         }
         try {
-            this.skladService.prijmiPracovnika(id, meno, priezvisko);
+            this.skladService.prijmiPracovnika(id, meno, priezvisko, heslo);
             attributes.addFlashAttribute("sprava", "Pracovnik bol uspesne prijaty.");
         } catch (NenajdenaEntitaException | NeplatnaOperaciaException e) {
             attributes.addFlashAttribute("chyba", e.getMessage());

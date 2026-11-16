@@ -1,8 +1,8 @@
 package warehouse.web.api;
 
-import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -11,11 +11,11 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import warehouse.domain.Tovar;
 import warehouse.domain.ZakaznikInfo;
+import warehouse.security.PrihlasenyPouzivatel;
 import warehouse.service.SkladService;
 import warehouse.web.api.dto.TovarResponse;
 import warehouse.web.api.dto.VlozitTovarRequest;
 import warehouse.web.api.dto.ZakaznikRequest;
-import warehouse.web.view.SessionKluce;
 
 /**
  * REST rozhranie pre zakaznika.
@@ -38,19 +38,22 @@ public class ZakaznikApiController {
     }
 
     /**
-     * Vytvori tovar a ulozi ho do miestnosti na prijem tovaru. Odosielatelom musi byt prihlaseny zakaznik.
+     * Vytvori tovar a ulozi ho do miestnosti na prijem tovaru. Odosielatelom musi byt prihlaseny zakaznik,
+     * pri tovare sa ulozia jeho udaje z prihlasenia.
      * @param request poziadavka na vytvorenie tovaru
-     * @param session HTTP session s identitou prihlaseneho zakaznika
+     * @param pouzivatel prihlaseny zakaznik
      * @return vytvoreny tovar
      */
     @PostMapping("/tovar")
     @ResponseStatus(HttpStatus.CREATED)
-    public TovarResponse vytvorTovar(@Valid @RequestBody VlozitTovarRequest request, HttpSession session) {
-        if (!request.odosielatel().id().equals(session.getAttribute(SessionKluce.IDENTITA))) {
+    public TovarResponse vytvorTovar(@Valid @RequestBody VlozitTovarRequest request,
+                                     @AuthenticationPrincipal PrihlasenyPouzivatel pouzivatel) {
+        if (!request.odosielatel().id().equals(pouzivatel.id())) {
             throw new ZakazanyPristupException("Odosielatelom musi byt prihlaseny zakaznik.");
         }
+        ZakaznikInfo odosielatel = new ZakaznikInfo(pouzivatel.id(), pouzivatel.meno(), pouzivatel.priezvisko());
         Tovar tovar = this.skladService.vytvorTovar(request.id(), request.nazov(), request.vaha(),
-                this.naZakaznika(request.odosielatel()), this.naZakaznika(request.prijemca()));
+                odosielatel, this.naZakaznika(request.prijemca()));
         return this.mapper.naTovar(tovar);
     }
 

@@ -1,7 +1,9 @@
 package warehouse.config;
 
 import org.springframework.boot.ApplicationArguments;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import warehouse.domain.MalySklad;
@@ -22,22 +24,30 @@ public class DataInitializer implements ApplicationRunner {
     private final RiaditelRepository riaditelRepository;
     private final MiestnostRepository miestnostRepository;
     private final RegalRepository regalRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final String hesloRiaditela;
 
     /**
-     * Vytvori inicializator s potrebnymi repozitarmi.
+     * Vytvori inicializator s potrebnymi repozitarmi a heslom riaditela z konfiguracie.
      * @param riaditelRepository repozitar riaditelov
      * @param miestnostRepository repozitar miestnosti
      * @param regalRepository repozitar regalov
+     * @param passwordEncoder kodovac hesiel
+     * @param hesloRiaditela pociatocne heslo riaditela z vlastnosti {@code warehouse.riaditel.heslo}
      */
     public DataInitializer(RiaditelRepository riaditelRepository, MiestnostRepository miestnostRepository,
-                           RegalRepository regalRepository) {
+                           RegalRepository regalRepository, PasswordEncoder passwordEncoder,
+                           @Value("${warehouse.riaditel.heslo}") String hesloRiaditela) {
         this.riaditelRepository = riaditelRepository;
         this.miestnostRepository = miestnostRepository;
         this.regalRepository = regalRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.hesloRiaditela = hesloRiaditela;
     }
 
     /**
-     * Vytvori riaditela a predvolene miestnosti, ak v databaze chybaju.
+     * Vytvori riaditela a predvolene miestnosti, ak v databaze chybaju. Riaditelovi bez hesla
+     * (z databazy pred zavedenim hesiel) nastavi pociatocne heslo z konfiguracie.
      * @param args argumenty spustenia
      */
     @Override
@@ -46,6 +56,11 @@ public class DataInitializer implements ApplicationRunner {
         if (this.riaditelRepository.count() == 0) {
             this.riaditelRepository.save(new Riaditel(Riaditel.PREDVOLENE_ID, Riaditel.PREDVOLENE_MENO,
                     Riaditel.PREDVOLENE_PRIEZVISKO));
+        }
+        for (Riaditel riaditel : this.riaditelRepository.findAll()) {
+            if (riaditel.getHesloHash() == null) {
+                riaditel.nastavHesloHash(this.passwordEncoder.encode(this.hesloRiaditela));
+            }
         }
         if (this.miestnostRepository.count() == 0) {
             this.miestnostRepository.save(new VelkySklad(Miestnost.SKLAD_TOVARU));

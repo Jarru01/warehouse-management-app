@@ -1,10 +1,18 @@
 package warehouse.web.api;
 
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
-import warehouse.web.view.SessionKluce;
+import warehouse.security.PrihlasenyPouzivatel;
+import warehouse.security.Rola;
+
+import java.util.List;
+
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 /**
- * Pomocka pre testy REST rozhrania, ktora do poziadavky vlozi session prihlaseneho pouzivatela.
+ * Pomocka pre testy REST rozhrania: prihlaseny pouzivatel s danou rolou a platny CSRF token.
  * @author Juraj
  */
 final class ApiPrihlasenie {
@@ -12,23 +20,31 @@ final class ApiPrihlasenie {
     private ApiPrihlasenie() {
     }
 
-    static RequestPostProcessor ako(String rola, String identita) {
-        return request -> {
-            request.getSession().setAttribute(SessionKluce.ROLA, rola);
-            request.getSession().setAttribute(SessionKluce.IDENTITA, identita);
-            return request;
-        };
+    static RequestPostProcessor bezCsrf(Rola rola, String id) {
+        PrihlasenyPouzivatel pouzivatel = new PrihlasenyPouzivatel(rola, id, "Test", "Pouzivatel");
+        return authentication(UsernamePasswordAuthenticationToken.authenticated(pouzivatel, null,
+                List.of(new SimpleGrantedAuthority(rola.getOpravnenie()))));
+    }
+
+    static RequestPostProcessor ako(Rola rola, String id) {
+        RequestPostProcessor prihlasenie = bezCsrf(rola, id);
+        RequestPostProcessor token = csrf();
+        return request -> token.postProcessRequest(prihlasenie.postProcessRequest(request));
     }
 
     static RequestPostProcessor riaditel() {
-        return ako(SessionKluce.ROLA_RIADITEL, "123");
+        return ako(Rola.RIADITEL, "123");
     }
 
     static RequestPostProcessor pracovnik(String id) {
-        return ako(SessionKluce.ROLA_PRACOVNIK, id);
+        return ako(Rola.PRACOVNIK, id);
     }
 
     static RequestPostProcessor zakaznik(String id) {
-        return ako(SessionKluce.ROLA_ZAKAZNIK, id);
+        return ako(Rola.ZAKAZNIK, id);
+    }
+
+    static RequestPostProcessor neprihlaseny() {
+        return csrf();
     }
 }

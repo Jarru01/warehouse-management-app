@@ -14,3 +14,9 @@ spring:
 
 server:
   port: 8080
+
+warehouse:
+  riaditel:
+    # Initial password of the seeded director, set only while the director has no password.
+    # Local development value; override with WAREHOUSE_RIADITEL_HESLO everywhere else.
+    heslo: riaditel-dev-heslo

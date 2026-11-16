@@ -49,9 +49,12 @@ package "warehouse.domain" {
   abstract class Osoba <<MappedSuperclass>> {
   #meno: String
   #priezvisko: String
+  #hesloHash: String
   --
   +getMeno(): String
   +getPriezvisko(): String
+  +getHesloHash(): String
+  +nastavHesloHash(hesloHash: String): void
   }
 
   class Pracovnik <<Entity>> {
@@ -68,6 +71,15 @@ package "warehouse.domain" {
   class Riaditel <<Entity>> {
   -id: String
   }
+
+  class Zakaznik <<Entity>> {
+  -id: String
+  --
+  +naInfo(): ZakaznikInfo
+  }
+
+  class NenajdenaEntitaException
+  class NeplatnaOperaciaException
 }
 
 package "warehouse.repository" {
@@ -76,6 +88,7 @@ package "warehouse.repository" {
   interface TovarRepository
   interface PracovnikRepository
   interface RiaditelRepository
+  interface ZakaznikRepository
 }
 
 package "warehouse.service" {
@@ -85,11 +98,13 @@ package "warehouse.service" {
   +pracovnici(): List<Pracovnik>
   +pracovnik(id: String): Pracovnik
   +riaditel(id: String): Riaditel
+  +zakaznik(id: String): Zakaznik
   +tovar(id: String): Tovar
   +regale(kluc: String): List<Regal>
   +tovarVRegali(regalId: Long): List<Tovar>
   +tovarPreZakaznika(zakaznikId: String): List<Tovar>
-  +prijmiPracovnika(id: String, meno: String, priezvisko: String): Pracovnik
+  +prijmiPracovnika(id: String, meno: String, priezvisko: String, heslo: String): Pracovnik
+  +registrujZakaznika(id: String, meno: String, priezvisko: String, heslo: String): Zakaznik
   +vylucPracovnika(id: String): void
   +pridajRegal(kapacita: int): Regal
   +odstranRegal(regalId: Long): void
@@ -99,9 +114,18 @@ package "warehouse.service" {
   +vytvorTovar(id: String, nazov: String, vaha: int, odosielatel: ZakaznikInfo, prijemca: ZakaznikInfo): Tovar
   +vyzdvihniTovar(tovarId: String, zakaznikId: String): void
   }
+}
 
-  class NenajdenaEntitaException
-  class NeplatnaOperaciaException
+package "warehouse.security" {
+  class SecurityConfig
+  class PrihlasenieAuthenticationProvider
+  class PrihlasenieDetails
+  class PrihlasenyPouzivatel <<record>>
+  enum Rola {
+  RIADITEL
+  PRACOVNIK
+  ZAKAZNIK
+  }
 }
 
 package "warehouse.web.api" {
@@ -110,10 +134,9 @@ package "warehouse.web.api" {
   class ZakaznikApiController
   class MiestnostiApiController
   class StatusController
+  class CsrfController
   class DtoMapper
   class GlobalExceptionHandler
-  class ApiRolaInterceptor
-  class NeprihlasenyException
   class ZakazanyPristupException
 }
 
@@ -122,9 +145,8 @@ package "warehouse.web.view" {
   class RiaditelViewController
   class PracovnikViewController
   class ZakaznikViewController
-  class RolaInterceptor
   class FormularValidator
-  class WebConfig
+  class SpolocnyModelAdvice
 }
 
 package "warehouse.config" {
@@ -137,11 +159,13 @@ Miestnost <|-- MalySklad
 Miestnost ..> TypMiestnosti
 Osoba <|-- Pracovnik
 Osoba <|-- Riaditel
+Osoba <|-- Zakaznik
 MalySklad "1" -- "1" Regal : regal
 VelkySklad "1" -- "*" Regal : regale
 Regal "1" -- "*" Tovar : ulozeny
 Tovar ..> ZakaznikInfo : odosielatel
 Tovar ..> ZakaznikInfo : prijemca
+Zakaznik ..> ZakaznikInfo
 Pracovnik "0..1" --> "1" Miestnost : nachadza sa
 Pracovnik "0..1" --> "0..1" Tovar : drzi
 
@@ -150,8 +174,17 @@ SkladService --> RegalRepository
 SkladService --> TovarRepository
 SkladService --> PracovnikRepository
 SkladService --> RiaditelRepository
+SkladService --> ZakaznikRepository
 SkladService ..> NenajdenaEntitaException
 SkladService ..> NeplatnaOperaciaException
+
+SecurityConfig ..> PrihlasenieDetails
+SecurityConfig ..> PrihlasenyPouzivatel
+PrihlasenieAuthenticationProvider --> RiaditelRepository
+PrihlasenieAuthenticationProvider --> PracovnikRepository
+PrihlasenieAuthenticationProvider --> ZakaznikRepository
+PrihlasenieAuthenticationProvider ..> PrihlasenyPouzivatel
+PrihlasenyPouzivatel --> Rola
 
 RiaditelApiController --> SkladService
 PracovnikApiController --> SkladService
@@ -161,22 +194,21 @@ RiaditelApiController --> DtoMapper
 PracovnikApiController --> DtoMapper
 ZakaznikApiController --> DtoMapper
 MiestnostiApiController --> DtoMapper
+ZakaznikApiController ..> PrihlasenyPouzivatel
 GlobalExceptionHandler ..> NenajdenaEntitaException
 GlobalExceptionHandler ..> NeplatnaOperaciaException
+GlobalExceptionHandler ..> ZakazanyPristupException
 
 LoginController --> SkladService
 RiaditelViewController --> SkladService
 PracovnikViewController --> SkladService
 ZakaznikViewController --> SkladService
-WebConfig --> RolaInterceptor
-WebConfig --> ApiRolaInterceptor
-ApiRolaInterceptor ..> NeprihlasenyException
-ApiRolaInterceptor ..> ZakazanyPristupException
-GlobalExceptionHandler ..> NeprihlasenyException
-GlobalExceptionHandler ..> ZakazanyPristupException
 LoginController --> FormularValidator
 RiaditelViewController --> FormularValidator
 ZakaznikViewController --> FormularValidator
+PracovnikViewController ..> PrihlasenyPouzivatel
+ZakaznikViewController ..> PrihlasenyPouzivatel
+SpolocnyModelAdvice ..> PrihlasenyPouzivatel
 
 DataInitializer --> MiestnostRepository
 DataInitializer --> RegalRepository

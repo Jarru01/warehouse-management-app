@@ -1,22 +1,19 @@
 package warehouse.web.view;
 
-import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-import warehouse.domain.Pracovnik;
-import warehouse.domain.Riaditel;
-import warehouse.domain.NenajdenaEntitaException;
+import warehouse.domain.NeplatnaOperaciaException;
 import warehouse.service.SkladService;
-import warehouse.web.api.dto.ZakaznikRequest;
+import warehouse.web.api.dto.RegistraciaZakaznikaRequest;
 
 import java.util.Optional;
 
 /**
- * Prihlasenie a odhlasenie pouzivatelov.
+ * Uvodna stranka s prihlasenim a registracia zakaznikov. Samotne prihlasenie a odhlasenie spracuje Spring Security.
  * @author Juraj
  */
 @Controller
@@ -37,94 +34,48 @@ public class LoginController {
     /**
      * Zobrazi uvodnu stranku s vyberom roly. Vybrana rola sa prenesie do sablony.
      * @param rola kluc zvolenej roly
+     * @param chyba pritomny po neuspesnom prihlaseni
      * @param model model sablony
      * @return nazov sablony
      */
     @GetMapping("/")
     public String index(@RequestParam(name = "rola", required = false, defaultValue = "riaditel") String rola,
+                        @RequestParam(name = "chyba", required = false) String chyba,
                         Model model) {
         String vybranaRola = switch (rola) {
             case "pracovnik", "zakaznik", "riaditel" -> rola;
             default -> "riaditel";
         };
         model.addAttribute("rola", vybranaRola);
+        if (chyba != null) {
+            model.addAttribute("chyba", "Nespravne ID alebo heslo.");
+        }
         return "index";
     }
 
     /**
-     * Prihlasi riaditela podla id.
-     * @param id id riaditela
-     * @param session HTTP session
-     * @param attributes flash atributy
-     * @return presmerovanie
-     */
-    @PostMapping("/prihlasenie/riaditel")
-    public String prihlasRiaditela(@RequestParam String id, HttpSession session, RedirectAttributes attributes) {
-        try {
-            Riaditel riaditel = this.skladService.riaditel(id);
-            this.ulozPrihlasenie(session, SessionKluce.ROLA_RIADITEL, riaditel.getId(), riaditel.getMeno(), riaditel.getPriezvisko());
-            return "redirect:/riaditel";
-        } catch (NenajdenaEntitaException e) {
-            attributes.addFlashAttribute("chyba", e.getMessage());
-            return "redirect:/";
-        }
-    }
-
-    /**
-     * Prihlasi pracovnika podla id.
-     * @param id id pracovnika
-     * @param session HTTP session
-     * @param attributes flash atributy
-     * @return presmerovanie
-     */
-    @PostMapping("/prihlasenie/pracovnik")
-    public String prihlasPracovnika(@RequestParam String id, HttpSession session, RedirectAttributes attributes) {
-        try {
-            Pracovnik pracovnik = this.skladService.pracovnik(id);
-            this.ulozPrihlasenie(session, SessionKluce.ROLA_PRACOVNIK, pracovnik.getId(), pracovnik.getMeno(), pracovnik.getPriezvisko());
-            return "redirect:/pracovnik";
-        } catch (NenajdenaEntitaException e) {
-            attributes.addFlashAttribute("chyba", e.getMessage());
-            return "redirect:/";
-        }
-    }
-
-    /**
-     * Prihlasi zakaznika s udajmi zadanymi vo formulari.
-     * @param id id zakaznika
+     * Zaregistruje noveho zakaznika z formulara.
+     * @param id zvolene id zakaznika
      * @param meno meno zakaznika
      * @param priezvisko priezvisko zakaznika
-     * @param session HTTP session
+     * @param heslo heslo zakaznika
      * @param attributes flash atributy
-     * @return presmerovanie
+     * @return presmerovanie na prihlasenie zakaznika
      */
-    @PostMapping("/prihlasenie/zakaznik")
-    public String prihlasZakaznika(@RequestParam String id, @RequestParam String meno, @RequestParam String priezvisko,
-                                   HttpSession session, RedirectAttributes attributes) {
-        Optional<String> chyby = this.validator.chyby(new ZakaznikRequest(id, meno, priezvisko));
+    @PostMapping("/registracia")
+    public String registracia(@RequestParam String id, @RequestParam String meno, @RequestParam String priezvisko,
+                              @RequestParam String heslo, RedirectAttributes attributes) {
+        Optional<String> chyby = this.validator.chyby(new RegistraciaZakaznikaRequest(id, meno, priezvisko, heslo));
         if (chyby.isPresent()) {
             attributes.addFlashAttribute("chyba", chyby.get());
-            return "redirect:/";
+            return "redirect:/?rola=zakaznik";
         }
-        this.ulozPrihlasenie(session, SessionKluce.ROLA_ZAKAZNIK, id, meno, priezvisko);
-        return "redirect:/zakaznik";
-    }
-
-    /**
-     * Odhlasi pouzivatela a zrusi session.
-     * @param session HTTP session
-     * @return presmerovanie na uvodnu stranku
-     */
-    @PostMapping("/odhlasenie")
-    public String odhlasenie(HttpSession session) {
-        session.invalidate();
-        return "redirect:/";
-    }
-
-    private void ulozPrihlasenie(HttpSession session, String rola, String identita, String meno, String priezvisko) {
-        session.setAttribute(SessionKluce.ROLA, rola);
-        session.setAttribute(SessionKluce.IDENTITA, identita);
-        session.setAttribute(SessionKluce.MENO, meno);
-        session.setAttribute(SessionKluce.PRIEZVISKO, priezvisko);
+        try {
+            this.skladService.registrujZakaznika(id, meno, priezvisko, heslo);
+            attributes.addFlashAttribute("sprava", "Registracia prebehla. Teraz sa mozes prihlasit.");
+        } catch (NeplatnaOperaciaException e) {
+            attributes.addFlashAttribute("chyba", e.getMessage());
+        }
+        return "redirect:/?rola=zakaznik";
     }
 }

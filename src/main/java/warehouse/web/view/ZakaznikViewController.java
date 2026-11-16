@@ -1,6 +1,6 @@
 package warehouse.web.view;
 
-import jakarta.servlet.http.HttpSession;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +12,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import warehouse.domain.ZakaznikInfo;
 import warehouse.domain.NenajdenaEntitaException;
 import warehouse.domain.NeplatnaOperaciaException;
+import warehouse.security.PrihlasenyPouzivatel;
 import warehouse.service.SkladService;
 import warehouse.web.api.DtoMapper;
 import warehouse.web.api.dto.VlozitTovarRequest;
@@ -44,14 +45,13 @@ public class ZakaznikViewController {
 
     /**
      * Zobrazi panel zakaznika s jeho tovarom pripravenym na vydaj.
-     * @param session HTTP session
+     * @param pouzivatel prihlaseny zakaznik
      * @param model model sablony
      * @return nazov sablony
      */
     @GetMapping
-    public String panel(HttpSession session, Model model) {
-        String id = (String) session.getAttribute(SessionKluce.IDENTITA);
-        model.addAttribute("tovar", this.skladService.tovarPreZakaznika(id).stream()
+    public String panel(@AuthenticationPrincipal PrihlasenyPouzivatel pouzivatel, Model model) {
+        model.addAttribute("tovar", this.skladService.tovarPreZakaznika(pouzivatel.id()).stream()
                 .map(this.mapper::naTovar).toList());
         return "zakaznik";
     }
@@ -64,19 +64,17 @@ public class ZakaznikViewController {
      * @param prijemcaId id prijemcu
      * @param prijemcaMeno meno prijemcu
      * @param prijemcaPriezvisko priezvisko prijemcu
-     * @param session HTTP session
+     * @param pouzivatel prihlaseny zakaznik, ktory je odosielatelom
      * @param attributes flash atributy
      * @return presmerovanie na panel
      */
     @PostMapping("/tovar")
     public String vlozTovar(@RequestParam String id, @RequestParam String nazov, @RequestParam int vaha,
                             @RequestParam String prijemcaId, @RequestParam String prijemcaMeno,
-                            @RequestParam String prijemcaPriezvisko, HttpSession session,
+                            @RequestParam String prijemcaPriezvisko,
+                            @AuthenticationPrincipal PrihlasenyPouzivatel pouzivatel,
                             RedirectAttributes attributes) {
-        ZakaznikRequest odosielatel = new ZakaznikRequest(
-                (String) session.getAttribute(SessionKluce.IDENTITA),
-                (String) session.getAttribute(SessionKluce.MENO),
-                (String) session.getAttribute(SessionKluce.PRIEZVISKO));
+        ZakaznikRequest odosielatel = new ZakaznikRequest(pouzivatel.id(), pouzivatel.meno(), pouzivatel.priezvisko());
         ZakaznikRequest prijemca = new ZakaznikRequest(prijemcaId, prijemcaMeno, prijemcaPriezvisko);
         Optional<String> chyby = this.validator.chyby(new VlozitTovarRequest(id, nazov, vaha, odosielatel, prijemca));
         if (chyby.isPresent()) {
@@ -95,14 +93,16 @@ public class ZakaznikViewController {
     /**
      * Vyzdvihne tovar pripraveny na vydaj.
      * @param tovarId id tovaru
-     * @param session HTTP session
+     * @param pouzivatel prihlaseny zakaznik
      * @param attributes flash atributy
      * @return presmerovanie na panel
      */
     @PostMapping("/vyzdvihnutie/{tovarId}")
-    public String vyzdvihniTovar(@PathVariable String tovarId, HttpSession session, RedirectAttributes attributes) {
+    public String vyzdvihniTovar(@PathVariable String tovarId,
+                                 @AuthenticationPrincipal PrihlasenyPouzivatel pouzivatel,
+                                 RedirectAttributes attributes) {
         try {
-            this.skladService.vyzdvihniTovar(tovarId, (String) session.getAttribute(SessionKluce.IDENTITA));
+            this.skladService.vyzdvihniTovar(tovarId, pouzivatel.id());
             attributes.addFlashAttribute("sprava", "Tovar bol vyzdvihnuty.");
         } catch (NenajdenaEntitaException | NeplatnaOperaciaException e) {
             attributes.addFlashAttribute("chyba", e.getMessage());

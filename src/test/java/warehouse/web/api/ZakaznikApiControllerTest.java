@@ -10,6 +10,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import warehouse.domain.Tovar;
 import warehouse.domain.ZakaznikInfo;
 import warehouse.domain.NeplatnaOperaciaException;
+import warehouse.security.SecurityConfig;
 import warehouse.service.SkladService;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -22,10 +23,11 @@ import static org.mockito.Mockito.never;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static warehouse.web.api.ApiPrihlasenie.neprihlaseny;
 import static warehouse.web.api.ApiPrihlasenie.zakaznik;
 
 @WebMvcTest(ZakaznikApiController.class)
-@Import(DtoMapper.class)
+@Import({DtoMapper.class, SecurityConfig.class})
 class ZakaznikApiControllerTest {
 
     private static final String TOVAR_OD_10 = """
@@ -115,7 +117,7 @@ class ZakaznikApiControllerTest {
 
     @Test
     void vyzdvihnutieBezPrihlaseniaVrati401() throws Exception {
-        this.mockMvc.perform(post("/api/zakaznik/20/vyzdvihnutie/100"))
+        this.mockMvc.perform(post("/api/zakaznik/20/vyzdvihnutie/100").with(neprihlaseny()))
                 .andExpect(status().isUnauthorized());
 
         then(this.skladService).should(never()).vyzdvihniTovar(anyString(), anyString());

@@ -8,6 +8,8 @@ import warehouse.domain.Osoba;
 import warehouse.repository.PracovnikRepository;
 import warehouse.repository.RiaditelRepository;
 import warehouse.repository.ZakaznikRepository;
+import warehouse.domain.AuditAkcia;
+import warehouse.service.AuditService;
 import warehouse.service.HeslaService;
 
 import java.util.Optional;
@@ -22,6 +24,7 @@ public class UcetService {
     private final PracovnikRepository pracovnikRepository;
     private final ZakaznikRepository zakaznikRepository;
     private final HeslaService heslaService;
+    private final AuditService auditService;
 
     /**
      * Vytvori servis uctov.
@@ -29,13 +32,16 @@ public class UcetService {
      * @param pracovnikRepository repozitar pracovnikov
      * @param zakaznikRepository repozitar zakaznikov
      * @param heslaService servis hesiel
+     * @param auditService servis auditu
      */
     public UcetService(RiaditelRepository riaditelRepository, PracovnikRepository pracovnikRepository,
-                       ZakaznikRepository zakaznikRepository, HeslaService heslaService) {
+                       ZakaznikRepository zakaznikRepository, HeslaService heslaService,
+                       AuditService auditService) {
         this.riaditelRepository = riaditelRepository;
         this.pracovnikRepository = pracovnikRepository;
         this.zakaznikRepository = zakaznikRepository;
         this.heslaService = heslaService;
+        this.auditService = auditService;
     }
 
     /**
@@ -74,5 +80,6 @@ public class UcetService {
             throw new NeplatnaOperaciaException("Nove heslo sa musi lisit od sucasneho.");
         }
         osoba.nastavHeslo(this.heslaService.zahesuj(noveHeslo), false);
+        this.auditService.zaznamenajPre(rola.name() + ":" + id, AuditAkcia.ZMENA_HESLA, null);
     }
 }

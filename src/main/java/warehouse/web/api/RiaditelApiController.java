@@ -8,10 +8,15 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import warehouse.domain.AuditAkcia;
+import warehouse.domain.AuditZaznam;
 import warehouse.domain.Regal;
+import warehouse.service.AuditService;
 import warehouse.service.SkladService;
+import warehouse.web.api.dto.AuditZaznamResponse;
 import warehouse.web.api.dto.NoveHesloRequest;
 import warehouse.web.api.dto.PracovnikResponse;
 import warehouse.web.api.dto.PridatRegalRequest;
@@ -29,16 +34,34 @@ import java.util.List;
 @RequestMapping("/api/riaditel")
 public class RiaditelApiController {
     private final SkladService skladService;
+    private final AuditService auditService;
     private final DtoMapper mapper;
 
     /**
-     * Vytvori kontroler so servisom a mapovacom.
+     * Vytvori kontroler so servisom skladu, auditu a mapovacom.
      * @param skladService servis skladu
+     * @param auditService servis auditu
      * @param mapper prevodnik na DTO
      */
-    public RiaditelApiController(SkladService skladService, DtoMapper mapper) {
+    public RiaditelApiController(SkladService skladService, AuditService auditService, DtoMapper mapper) {
         this.skladService = skladService;
+        this.auditService = auditService;
         this.mapper = mapper;
+    }
+
+    /**
+     * Vrati najnovsie zaznamy auditu, volitelne iba jednej akcie.
+     * @param pocet pocet zaznamov, najviac 200
+     * @param akcia druh udalosti, napriklad NEUSPESNE_PRIHLASENIE
+     * @return zaznamy od najnovsieho
+     */
+    @GetMapping("/audit")
+    public List<AuditZaznamResponse> audit(@RequestParam(defaultValue = "50") int pocet,
+                                           @RequestParam(required = false) AuditAkcia akcia) {
+        List<AuditZaznam> zaznamy = akcia == null
+                ? this.auditService.najnovsie(pocet)
+                : this.auditService.najnovsie(akcia, pocet);
+        return zaznamy.stream().map(this.mapper::naAudit).toList();
     }
 
     /**

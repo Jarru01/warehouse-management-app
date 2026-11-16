@@ -668,21 +668,42 @@ tbody tr:hover {
 }
 
 .meter {
+    display: block;
+    width: 100%;
     height: 6px;
+    margin: 0 0 var(--space-2);
+    border: 0;
     border-radius: 999px;
     background: var(--grey-100);
+    color: var(--blue-500);
     overflow: hidden;
-    margin-bottom: var(--space-2);
+    appearance: none;
 }
 
-.meter > span {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
+.meter::-webkit-progress-bar {
+    background: var(--grey-100);
+    border-radius: 999px;
+}
+
+.meter::-webkit-progress-value {
     background: var(--blue-500);
+    border-radius: 999px;
 }
 
-.meter-full > span {
+.meter::-moz-progress-bar {
+    background: var(--blue-500);
+    border-radius: 999px;
+}
+
+.meter-full {
+    color: var(--gold-500);
+}
+
+.meter-full::-webkit-progress-value {
+    background: var(--gold-500);
+}
+
+.meter-full::-moz-progress-bar {
     background: var(--gold-500);
 }
 

@@ -35,19 +35,23 @@ public class LoginController {
      * Zobrazi uvodnu stranku s vyberom roly. Vybrana rola sa prenesie do sablony.
      * @param rola kluc zvolenej roly
      * @param chyba pritomny po neuspesnom prihlaseni
+     * @param zablokovane pritomny, ak su dalsie pokusy docasne zablokovane
      * @param model model sablony
      * @return nazov sablony
      */
     @GetMapping("/")
     public String index(@RequestParam(name = "rola", required = false, defaultValue = "riaditel") String rola,
                         @RequestParam(name = "chyba", required = false) String chyba,
+                        @RequestParam(name = "zablokovane", required = false) String zablokovane,
                         Model model) {
         String vybranaRola = switch (rola) {
             case "pracovnik", "zakaznik", "riaditel" -> rola;
             default -> "riaditel";
         };
         model.addAttribute("rola", vybranaRola);
-        if (chyba != null) {
+        if (zablokovane != null) {
+            model.addAttribute("chyba", "Prilis vela neuspesnych pokusov o prihlasenie. Skus to znova neskor.");
+        } else if (chyba != null) {
             model.addAttribute("chyba", "Nespravne ID alebo heslo.");
         }
         return "index";

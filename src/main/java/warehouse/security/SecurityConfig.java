@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -21,6 +22,7 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CsrfException;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.security.web.util.matcher.AnyRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
@@ -37,6 +39,10 @@ import java.nio.charset.StandardCharsets;
 public class SecurityConfig {
     /** Stranka na zmenu hesla. */
     public static final String ZMENA_HESLA = "/heslo";
+
+    /** Stranky smu nacitat iba vlastne skripty a styly; vlozene skripty ani cudzie zdroje nie su povolene. */
+    static final String CONTENT_SECURITY_POLICY = "default-src 'self'; script-src 'self'; style-src 'self'; "
+            + "img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
 
     private static final RequestMatcher API = request ->
             request.getRequestURI().startsWith(request.getContextPath() + "/api/");
@@ -73,9 +79,14 @@ public class SecurityConfig {
             throws Exception {
         http
                 .securityContext(kontext -> kontext.securityContextRepository(securityContextRepository))
+                .headers(hlavicky -> hlavicky
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(CONTENT_SECURITY_POLICY))
+                        .referrerPolicy(referrer -> referrer.policy(
+                                ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN)))
                 .authorizeHttpRequests(pristup -> pristup
                         .requestMatchers("/", "/registracia", "/style.css", "/app.js", "/error",
-                                "/api/status", "/api/csrf").permitAll()
+                                "/api/status", "/api/csrf",
+                                "/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/riaditel", "/riaditel/**", "/api/riaditel/**").hasRole(Rola.RIADITEL.name())
                         .requestMatchers("/pracovnik", "/pracovnik/**").hasRole(Rola.PRACOVNIK.name())
                         .requestMatchers("/api/pracovnik/{id}", "/api/pracovnik/{id}/**")
@@ -137,7 +148,8 @@ public class SecurityConfig {
     private static void poNeuspesnomPrihlaseni(HttpServletRequest request, HttpServletResponse response,
                                                AuthenticationException vynimka) throws IOException {
         String rola = Rola.podlaNazvu(request.getParameter("rola")).orElse(Rola.RIADITEL).getKluc();
-        response.sendRedirect(request.getContextPath() + "/?rola=" + rola + "&chyba");
+        String dovod = vynimka instanceof LockedException ? "zablokovane" : "chyba";
+        response.sendRedirect(request.getContextPath() + "/?rola=" + rola + "&" + dovod);
     }
 
     private static void zamietnutieApi(HttpServletRequest request, HttpServletResponse response,

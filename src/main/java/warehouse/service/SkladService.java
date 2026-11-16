@@ -3,6 +3,7 @@ package warehouse.service;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import warehouse.domain.AuditAkcia;
 import warehouse.domain.Miestnost;
 import warehouse.domain.NenajdenaEntitaException;
 import warehouse.domain.NeplatnaOperaciaException;
@@ -37,9 +38,10 @@ public class SkladService {
     private final RiaditelRepository riaditelRepository;
     private final ZakaznikRepository zakaznikRepository;
     private final HeslaService heslaService;
+    private final AuditService auditService;
 
     /**
-     * Vytvori servis s potrebnymi repozitarmi a servisom hesiel.
+     * Vytvori servis s potrebnymi repozitarmi, servisom hesiel a auditom.
      * @param miestnostRepository repozitar miestnosti
      * @param regalRepository repozitar regalov
      * @param tovarRepository repozitar tovaru
@@ -47,11 +49,12 @@ public class SkladService {
      * @param riaditelRepository repozitar riaditelov
      * @param zakaznikRepository repozitar zakaznikov
      * @param heslaService servis hesiel
+     * @param auditService servis auditu
      */
     public SkladService(MiestnostRepository miestnostRepository, RegalRepository regalRepository,
                         TovarRepository tovarRepository, PracovnikRepository pracovnikRepository,
                         RiaditelRepository riaditelRepository, ZakaznikRepository zakaznikRepository,
-                        HeslaService heslaService) {
+                        HeslaService heslaService, AuditService auditService) {
         this.miestnostRepository = miestnostRepository;
         this.regalRepository = regalRepository;
         this.tovarRepository = tovarRepository;
@@ -59,6 +62,7 @@ public class SkladService {
         this.riaditelRepository = riaditelRepository;
         this.zakaznikRepository = zakaznikRepository;
         this.heslaService = heslaService;
+        this.auditService = auditService;
     }
 
     /**
@@ -180,7 +184,10 @@ public class SkladService {
         Pracovnik pracovnik = new Pracovnik(id, meno, priezvisko);
         pracovnik.nastavHeslo(this.heslaService.zahesuj(heslo), true);
         pracovnik.premiestniDo(this.miestnost(Miestnost.SKLAD_TOVARU));
-        return this.pracovnikRepository.save(pracovnik);
+        Pracovnik ulozeny = this.pracovnikRepository.save(pracovnik);
+        this.auditService.zaznamenaj(AuditAkcia.PRIJATIE_PRACOVNIKA,
+                "pracovnik " + id + " (" + meno + " " + priezvisko + ")");
+        return ulozeny;
     }
 
     /**
@@ -198,7 +205,10 @@ public class SkladService {
         }
         Zakaznik zakaznik = new Zakaznik(id, meno, priezvisko);
         zakaznik.nastavHeslo(this.heslaService.zahesuj(heslo), false);
-        return this.zakaznikRepository.save(zakaznik);
+        Zakaznik ulozeny = this.zakaznikRepository.save(zakaznik);
+        this.auditService.zaznamenajPre("ZAKAZNIK:" + id, AuditAkcia.REGISTRACIA,
+                "zakaznik " + id + " (" + meno + " " + priezvisko + ")");
+        return ulozeny;
     }
 
     /**
@@ -210,6 +220,7 @@ public class SkladService {
     public void resetujHesloPracovnika(String id, String noveHeslo) {
         Pracovnik pracovnik = this.pracovnik(id);
         pracovnik.nastavHeslo(this.heslaService.zahesuj(noveHeslo), true);
+        this.auditService.zaznamenaj(AuditAkcia.RESET_HESLA, "pracovnik " + id);
     }
 
     /**
@@ -223,6 +234,7 @@ public class SkladService {
             this.ulozTovar(id);
         }
         this.pracovnikRepository.delete(pracovnik);
+        this.auditService.zaznamenaj(AuditAkcia.VYLUCENIE_PRACOVNIKA, "pracovnik " + id);
     }
 
     /**
@@ -232,7 +244,10 @@ public class SkladService {
      */
     @Transactional
     public Regal pridajRegal(int kapacita) {
-        return this.regalRepository.save(new Regal(this.miestnost(Miestnost.SKLAD_TOVARU), kapacita));
+        Regal regal = this.regalRepository.save(new Regal(this.miestnost(Miestnost.SKLAD_TOVARU), kapacita));
+        this.auditService.zaznamenaj(AuditAkcia.PRIDANIE_REGALU,
+                "regal " + regal.getId() + ", kapacita " + kapacita);
+        return regal;
     }
 
     /**
@@ -249,6 +264,7 @@ public class SkladService {
             throw new NeplatnaOperaciaException("Regal nie je prazdny.");
         }
         this.regalRepository.delete(regal);
+        this.auditService.zaznamenaj(AuditAkcia.ODSTRANENIE_REGALU, "regal " + regalId);
     }
 
     /**
@@ -261,6 +277,8 @@ public class SkladService {
     public Pracovnik presunPracovnika(String pracovnikId, String klucMiestnosti) {
         Pracovnik pracovnik = this.pracovnik(pracovnikId);
         pracovnik.premiestniDo(this.miestnost(klucMiestnosti));
+        this.auditService.zaznamenaj(AuditAkcia.PRESUN_PRACOVNIKA,
+                "pracovnik " + pracovnikId + " do " + klucMiestnosti);
         return pracovnik;
     }
 
@@ -280,8 +298,11 @@ public class SkladService {
                 || !tovar.getRegal().getMiestnost().getKluc().equals(pracovnik.getMiestnost().getKluc())) {
             throw new NeplatnaOperaciaException("Tovar sa nenachadza v miestnosti pracovnika.");
         }
+        String odkial = tovar.getRegal().getMiestnost().getKluc();
         tovar.vyberZRegalu();
         pracovnik.uchop(tovar);
+        this.auditService.zaznamenaj(AuditAkcia.ZOBRATIE_TOVARU,
+                "tovar " + tovarId + " z " + odkial + " pracovnikom " + pracovnikId);
     }
 
     /**
@@ -298,8 +319,12 @@ public class SkladService {
         if (regal == null) {
             throw new NeplatnaOperaciaException("V miestnosti nie je volny regal.");
         }
-        pracovnik.getDrzanyTovar().ulozDoRegalu(regal, this.najdiVolnySlot(regal));
+        Tovar tovar = pracovnik.getDrzanyTovar();
+        int slot = this.najdiVolnySlot(regal);
+        tovar.ulozDoRegalu(regal, slot);
         pracovnik.poloz();
+        this.auditService.zaznamenaj(AuditAkcia.ULOZENIE_TOVARU, "tovar " + tovar.getId() + " do "
+                + pracovnik.getMiestnost().getKluc() + ", regal " + regal.getId() + ", slot " + slot);
     }
 
     /**
@@ -332,7 +357,10 @@ public class SkladService {
         }
         Tovar tovar = new Tovar(id, nazov, vaha, odosielatel, registrovanyPrijemca.naInfo());
         tovar.ulozDoRegalu(regal, this.najdiVolnySlot(regal));
-        return this.tovarRepository.save(tovar);
+        Tovar ulozeny = this.tovarRepository.save(tovar);
+        this.auditService.zaznamenaj(AuditAkcia.VLOZENIE_TOVARU,
+                "tovar " + id + " od " + odosielatel.getId() + " pre " + prijemca.getId());
+        return ulozeny;
     }
 
     /**
@@ -351,6 +379,7 @@ public class SkladService {
             throw new NeplatnaOperaciaException("Tovar nepatri zadanemu zakaznikovi.");
         }
         this.tovarRepository.delete(tovar);
+        this.auditService.zaznamenaj(AuditAkcia.VYZDVIHNUTIE_TOVARU, "tovar " + tovarId + " zakaznikom " + zakaznikId);
     }
 
     private Regal regal(Long regalId) {

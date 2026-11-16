@@ -12,10 +12,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 import warehouse.AbstractIntegrationTest;
+import warehouse.domain.AuditAkcia;
 import warehouse.domain.Miestnost;
 import warehouse.domain.NenajdenaEntitaException;
 import warehouse.repository.TovarRepository;
 import warehouse.security.Rola;
+import warehouse.service.AuditService;
 import warehouse.service.SkladService;
 
 import static org.hamcrest.Matchers.containsString;
@@ -28,6 +30,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -47,6 +50,9 @@ class ViewFlowTest extends AbstractIntegrationTest {
 
     @Autowired
     private TovarRepository tovarRepository;
+
+    @Autowired
+    private AuditService auditService;
 
     @Value("${warehouse.riaditel.heslo}")
     private String hesloRiaditela;
@@ -413,6 +419,65 @@ class ViewFlowTest extends AbstractIntegrationTest {
         this.mockMvc.perform(get("/api/status"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.database").value("ok"));
+    }
+
+    @Test
+    void opakovaneZleHesloDocasneZablokujeUcet() throws Exception {
+        this.skladService.registrujZakaznika("41", "Ivan", "Dlhy", HESLO);
+        for (int i = 0; i < 5; i++) {
+            this.mockMvc.perform(post("/prihlasenie").with(csrf())
+                            .param("rola", "ZAKAZNIK").param("id", "41").param("heslo", "zle-heslo-" + i))
+                    .andExpect(redirectedUrl("/?rola=zakaznik&chyba"));
+        }
+
+        this.mockMvc.perform(post("/prihlasenie").with(csrf())
+                        .param("rola", "ZAKAZNIK").param("id", "41").param("heslo", HESLO))
+                .andExpect(redirectedUrl("/?rola=zakaznik&zablokovane"));
+        this.mockMvc.perform(get("/").param("rola", "zakaznik").param("zablokovane", ""))
+                .andExpect(content().string(containsString("Prilis vela neuspesnych pokusov")));
+
+        assertEquals(5, this.auditService.najnovsie(AuditAkcia.NEUSPESNE_PRIHLASENIE, 50).stream()
+                .filter(zaznam -> zaznam.getPouzivatel().equals("ZAKAZNIK:41")).count());
+        assertEquals("ZAKAZNIK:41",
+                this.auditService.najnovsie(AuditAkcia.ZABLOKOVANE_PRIHLASENIE, 1).get(0).getPouzivatel());
+    }
+
+    @Test
+    void auditZaznamenaKtoCoUrobil() throws Exception {
+        MockHttpSession riaditel = this.prihlas(Rola.RIADITEL, "123", this.hesloRiaditela);
+        this.mockMvc.perform(post("/riaditel/pracovnici").with(csrf()).session(riaditel)
+                        .param("id", "8").param("meno", "Ema").param("priezvisko", "Nova").param("heslo", HESLO))
+                .andExpect(redirectedUrl("/riaditel"));
+
+        this.mockMvc.perform(get("/api/riaditel/audit").session(riaditel).param("akcia", "PRIJATIE_PRACOVNIKA"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].pouzivatel").value("RIADITEL:123"))
+                .andExpect(jsonPath("$[0].detail").value("pracovnik 8 (Ema Nova)"));
+        this.mockMvc.perform(get("/riaditel").session(riaditel))
+                .andExpect(content().string(containsString("Posledné udalosti")))
+                .andExpect(content().string(containsString("pracovnik 8 (Ema Nova)")));
+
+        this.mockMvc.perform(post("/odhlasenie").with(csrf()).session(riaditel));
+        assertEquals("RIADITEL:123", this.auditService.najnovsie(AuditAkcia.ODHLASENIE, 1).get(0).getPouzivatel());
+    }
+
+    @Test
+    void healthCheckJeVerejnyAOstatneEndpointyNie() throws Exception {
+        this.mockMvc.perform(get("/actuator/health"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"));
+        this.mockMvc.perform(get("/actuator/health/readiness"))
+                .andExpect(status().isOk());
+        this.mockMvc.perform(get("/actuator/env"))
+                .andExpect(status().is3xxRedirection());
+    }
+
+    @Test
+    void strankyPosielajuBezpecnostneHlavicky() throws Exception {
+        this.mockMvc.perform(get("/"))
+                .andExpect(header().string("Content-Security-Policy", containsString("default-src 'self'")))
+                .andExpect(header().string("X-Frame-Options", "DENY"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"));
     }
 
     /**

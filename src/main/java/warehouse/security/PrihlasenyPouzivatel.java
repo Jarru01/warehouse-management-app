@@ -1,5 +1,7 @@
 package warehouse.security;
 
+import org.springframework.security.core.AuthenticatedPrincipal;
+
 import java.io.Serializable;
 
 /**
@@ -12,7 +14,16 @@ import java.io.Serializable;
  * @author Juraj
  */
 public record PrihlasenyPouzivatel(Rola rola, String id, String meno, String priezvisko, boolean zmenaHesla)
-        implements Serializable {
+        implements AuthenticatedPrincipal, Serializable {
+
+    /**
+     * Vrati jednoznacne meno prihlasenia v tvare ROLA:id, pouziva sa napriklad v audite.
+     * @return rola a id
+     */
+    @Override
+    public String getName() {
+        return this.rola.name() + ":" + this.id;
+    }
 
     /**
      * Vrati toho isteho pouzivatela po zmene hesla.

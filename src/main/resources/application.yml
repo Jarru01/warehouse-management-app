@@ -24,3 +24,37 @@ server:
   error:
     include-stacktrace: never
     include-message: never
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        http-only: true
+        same-site: lax
+
+# Only the health and info endpoints are exposed. /actuator/health/liveness and
+# /actuator/health/readiness are ready for container health checks.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: warehouse-management-app
+
+warehouse:
+  prihlasenie:
+    # Failed logins allowed per account (role + ID) and per IP address within
+    # the window; after that further attempts are refused until the window ends.
+    max-pokusov-na-ucet: 5
+    max-pokusov-z-adresy: 20
+    okno: 15m

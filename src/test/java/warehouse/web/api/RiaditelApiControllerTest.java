@@ -9,6 +9,8 @@ import org.springframework.http.MediaType;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import warehouse.domain.AuditAkcia;
+import warehouse.domain.AuditZaznam;
 import warehouse.domain.Pracovnik;
 import warehouse.domain.Regal;
 import warehouse.domain.VelkySklad;
@@ -16,8 +18,10 @@ import warehouse.domain.NenajdenaEntitaException;
 import warehouse.domain.NeplatnaOperaciaException;
 import warehouse.security.Rola;
 import warehouse.security.SecurityConfig;
+import warehouse.service.AuditService;
 import warehouse.service.SkladService;
 
+import java.time.Instant;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.anyString;
@@ -45,6 +49,29 @@ class RiaditelApiControllerTest {
 
     @MockitoBean
     private SkladService skladService;
+
+    @MockitoBean
+    private AuditService auditService;
+
+    @Test
+    void auditVratiNajnovsieZaznamy() throws Exception {
+        given(this.auditService.najnovsie(AuditAkcia.NEUSPESNE_PRIHLASENIE, 10)).willReturn(List.of(
+                new AuditZaznam(Instant.parse("2026-11-16T10:00:00Z"), "RIADITEL:123",
+                        AuditAkcia.NEUSPESNE_PRIHLASENIE, "adresa 10.0.0.1")));
+
+        this.mockMvc.perform(get("/api/riaditel/audit").with(riaditel())
+                        .param("pocet", "10").param("akcia", "NEUSPESNE_PRIHLASENIE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].pouzivatel").value("RIADITEL:123"))
+                .andExpect(jsonPath("$[0].akcia").value("NEUSPESNE_PRIHLASENIE"))
+                .andExpect(jsonPath("$[0].cas").value("2026-11-16T10:00:00Z"));
+    }
+
+    @Test
+    void auditNieJePristupnyPracovnikovi() throws Exception {
+        this.mockMvc.perform(get("/api/riaditel/audit").with(pracovnik("5")))
+                .andExpect(status().isForbidden());
+    }
 
     @Test
     void prijatiePracovnikaVrati201() throws Exception {

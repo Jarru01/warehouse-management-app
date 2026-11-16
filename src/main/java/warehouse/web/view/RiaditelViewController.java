@@ -8,9 +8,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+import warehouse.domain.AuditAkcia;
+import warehouse.domain.AuditZaznam;
 import warehouse.domain.Miestnost;
 import warehouse.domain.NenajdenaEntitaException;
 import warehouse.domain.NeplatnaOperaciaException;
+import warehouse.service.AuditService;
 import warehouse.service.SkladService;
 import warehouse.web.api.DtoMapper;
 import warehouse.web.api.dto.MiestnostResponse;
@@ -20,8 +23,11 @@ import warehouse.web.api.dto.PridatRegalRequest;
 import warehouse.web.api.dto.PrijmoutPracovnikaRequest;
 import warehouse.web.api.dto.RegalResponse;
 
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -32,18 +38,37 @@ import java.util.Optional;
 @Controller
 @RequestMapping("/riaditel")
 public class RiaditelViewController {
+    private static final int POCET_UDALOSTI = 15;
+    private static final DateTimeFormatter FORMAT_CASU = DateTimeFormatter.ofPattern("d. M. yyyy HH:mm:ss")
+            .withZone(ZoneId.systemDefault());
+
     private final SkladService skladService;
+    private final AuditService auditService;
     private final DtoMapper mapper;
     private final FormularValidator validator;
 
     /**
-     * Vytvori kontroler so servisom, mapovacom a validatorom formularov.
+     * Riadok auditu pripraveny na zobrazenie.
+     * @param cas miestny cas udalosti
+     * @param pouzivatel kto udalost vykonal
+     * @param akcia citatelny nazov udalosti
+     * @param detail doplnujuci opis
+     * @param varovanie true pre neuspesne alebo zablokovane prihlasenie
+     */
+    public record AuditRiadok(String cas, String pouzivatel, String akcia, String detail, boolean varovanie) {
+    }
+
+    /**
+     * Vytvori kontroler so servisom skladu, auditu, mapovacom a validatorom formularov.
      * @param skladService servis skladu
+     * @param auditService servis auditu
      * @param mapper prevodnik na DTO
      * @param validator validator formularov
      */
-    public RiaditelViewController(SkladService skladService, DtoMapper mapper, FormularValidator validator) {
+    public RiaditelViewController(SkladService skladService, AuditService auditService, DtoMapper mapper,
+                                  FormularValidator validator) {
         this.skladService = skladService;
+        this.auditService = auditService;
         this.mapper = mapper;
         this.validator = validator;
     }
@@ -75,7 +100,17 @@ public class RiaditelViewController {
         model.addAttribute("pocetPracovnikov", pracovnici.size());
         model.addAttribute("pocetMiestnosti", miestnosti.size());
         model.addAttribute("pocetTovarov", pocetTovarov);
+        model.addAttribute("udalosti", this.auditService.najnovsie(POCET_UDALOSTI).stream()
+                .map(RiaditelViewController::naRiadok).toList());
         return "riaditel";
+    }
+
+    private static AuditRiadok naRiadok(AuditZaznam zaznam) {
+        AuditAkcia akcia = zaznam.getAkcia();
+        boolean varovanie = akcia == AuditAkcia.NEUSPESNE_PRIHLASENIE || akcia == AuditAkcia.ZABLOKOVANE_PRIHLASENIE;
+        String nazov = akcia.name().charAt(0) + akcia.name().substring(1).toLowerCase(Locale.ROOT).replace('_', ' ');
+        return new AuditRiadok(FORMAT_CASU.format(zaznam.getCas()), zaznam.getPouzivatel(), nazov,
+                zaznam.getDetail(), varovanie);
     }
 
     /**

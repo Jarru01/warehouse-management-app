@@ -57,10 +57,9 @@
                 <div class="rack-head">
                     <h3 th:text="'Regál #' + ${regal.id}"></h3>
                 </div>
-                <div class="meter" th:classappend="${obsadene >= regal.kapacita} ? 'meter-full'"
-                     role="img" th:attr="aria-label=${obsadene + ' z ' + regal.kapacita + ' slotov obsadených'}">
-                    <span th:style="'width:' + ${obsadene * 100 / regal.kapacita} + '%'"></span>
-                </div>
+                <progress class="meter" th:classappend="${obsadene >= regal.kapacita} ? 'meter-full'"
+                          th:max="${regal.kapacita}" th:value="${obsadene}"
+                          th:attr="aria-label=${obsadene + ' z ' + regal.kapacita + ' slotov obsadených'}"></progress>
                 <div class="meter-label num" th:text="${obsadene} + ' / ' + ${regal.kapacita} + ' slotov obsadených'"></div>
                 <ul>
                     <li th:each="tovar : ${regal.tovar}">

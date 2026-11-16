@@ -19,7 +19,7 @@ public class WebConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new ZmenaHeslaInterceptor())
                 .addPathPatterns("/**")
-                .excludePathPatterns("/", "/error", "/style.css", "/app.js", "/api/status", "/api/csrf",
+                .excludePathPatterns("/", "/error", "/style.css", "/app.js", "/api/status", "/api/csrf", "/actuator/**",
                         SecurityConfig.ZMENA_HESLA, "/api" + SecurityConfig.ZMENA_HESLA);
     }
 }

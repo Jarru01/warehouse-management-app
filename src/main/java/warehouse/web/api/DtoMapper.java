@@ -1,12 +1,14 @@
 package warehouse.web.api;
 
 import org.springframework.stereotype.Component;
+import warehouse.domain.AuditZaznam;
 import warehouse.domain.Miestnost;
 import warehouse.domain.Pracovnik;
 import warehouse.domain.Regal;
 import warehouse.domain.Riaditel;
 import warehouse.domain.Tovar;
 import warehouse.domain.ZakaznikInfo;
+import warehouse.web.api.dto.AuditZaznamResponse;
 import warehouse.web.api.dto.MiestnostResponse;
 import warehouse.web.api.dto.PracovnikResponse;
 import warehouse.web.api.dto.RegalResponse;
@@ -72,6 +74,16 @@ public class DtoMapper {
      */
     public MiestnostResponse naMiestnost(Miestnost miestnost) {
         return new MiestnostResponse(miestnost.getKluc(), miestnost.getTyp().name());
+    }
+
+    /**
+     * Prevedie zaznam auditu na odpoved.
+     * @param zaznam zaznam auditu
+     * @return odpoved
+     */
+    public AuditZaznamResponse naAudit(AuditZaznam zaznam) {
+        return new AuditZaznamResponse(zaznam.getId(), zaznam.getCas(), zaznam.getPouzivatel(),
+                zaznam.getAkcia().name(), zaznam.getDetail());
     }
 
     /**

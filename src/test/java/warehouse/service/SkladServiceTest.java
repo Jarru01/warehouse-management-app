@@ -7,6 +7,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import warehouse.AbstractIntegrationTest;
+import warehouse.domain.AuditAkcia;
 import warehouse.domain.Miestnost;
 import warehouse.domain.NenajdenaEntitaException;
 import warehouse.domain.NeplatnaOperaciaException;
@@ -38,6 +39,9 @@ class SkladServiceTest extends AbstractIntegrationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private AuditService auditService;
+
     @BeforeEach
     void zaregistrujZakaznikov() {
         this.skladService.registrujZakaznika("10", "Jan", "Novy", HESLO);
@@ -52,6 +56,27 @@ class SkladServiceTest extends AbstractIntegrationTest {
         assertTrue(this.passwordEncoder.matches(HESLO, pracovnik.getHesloHash()));
         assertTrue(pracovnik.isZmenaHesla(), "heslo od riaditela je docasne");
         assertFalse(this.skladService.zakaznik("10").isZmenaHesla(), "zakaznik si heslo zvolil sam");
+    }
+
+    @Test
+    void zmenySaZapisuDoAuditu() {
+        this.skladService.prijmiPracovnika("1", "Peter", "Novak", HESLO);
+        Regal regal = this.skladService.pridajRegal(4);
+
+        assertEquals("pracovnik 1 (Peter Novak)",
+                this.auditService.najnovsie(AuditAkcia.PRIJATIE_PRACOVNIKA, 5).get(0).getDetail());
+        assertEquals("regal " + regal.getId() + ", kapacita 4",
+                this.auditService.najnovsie(AuditAkcia.PRIDANIE_REGALU, 5).get(0).getDetail());
+        assertEquals("ZAKAZNIK:20", this.auditService.najnovsie(AuditAkcia.REGISTRACIA, 5).get(0).getPouzivatel());
+    }
+
+    @Test
+    void neuspesnaZmenaNezanechaZaznam() {
+        Regal prijem = this.regalV(Miestnost.PRIJEM_TOVARU);
+
+        assertThrows(NeplatnaOperaciaException.class, () -> this.skladService.odstranRegal(prijem.getId()));
+
+        assertTrue(this.auditService.najnovsie(AuditAkcia.ODSTRANENIE_REGALU, 5).isEmpty());
     }
 
     @Test

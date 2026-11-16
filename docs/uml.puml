@@ -78,6 +78,16 @@ package "warehouse.domain" {
   +naInfo(): ZakaznikInfo
   }
 
+  class AuditZaznam <<Entity>> {
+  -id: Long
+  -cas: Instant
+  -pouzivatel: String
+  -akcia: AuditAkcia
+  -detail: String
+  }
+
+  enum AuditAkcia
+
   class NenajdenaEntitaException
   class NeplatnaOperaciaException
 }
@@ -89,6 +99,7 @@ package "warehouse.repository" {
   interface PracovnikRepository
   interface RiaditelRepository
   interface ZakaznikRepository
+  interface AuditZaznamRepository
 }
 
 package "warehouse.service" {
@@ -120,6 +131,12 @@ package "warehouse.service" {
   +zahesuj(heslo: String): String
   +zhoduje(heslo: String, hash: String): boolean
   }
+
+  class AuditService {
+  +zaznamenaj(akcia: AuditAkcia, detail: String): void
+  +zaznamenajPre(pouzivatel: String, akcia: AuditAkcia, detail: String): void
+  +najnovsie(pocet: int): List<AuditZaznam>
+  }
 }
 
 package "warehouse.security" {
@@ -132,6 +149,12 @@ package "warehouse.security" {
   +zmenHeslo(rola: Rola, id: String, sucasne: String, nove: String): void
   }
   class AktualnePrihlasenie
+  class PrihlasenieOchrana {
+  +jeZablokovane(ucet: String, adresa: String): boolean
+  +zaznamenajNeuspech(ucet: String, adresa: String): void
+  +zaznamenajUspech(ucet: String): void
+  }
+  class OdhlasenieAudit
   class ZmenaHeslaInterceptor
   class WebConfig
   enum Rola {
@@ -196,6 +219,15 @@ SkladService ..> NeplatnaOperaciaException
 SecurityConfig ..> PrihlasenieDetails
 SecurityConfig ..> PrihlasenyPouzivatel
 SkladService --> HeslaService
+SkladService --> AuditService
+AuditService --> AuditZaznamRepository
+AuditZaznam ..> AuditAkcia
+PrihlasenieAuthenticationProvider --> PrihlasenieOchrana
+PrihlasenieAuthenticationProvider --> AuditService
+OdhlasenieAudit --> AuditService
+UcetService --> AuditService
+RiaditelApiController --> AuditService
+RiaditelViewController --> AuditService
 PrihlasenieAuthenticationProvider --> UcetService
 PrihlasenieAuthenticationProvider --> HeslaService
 PrihlasenieAuthenticationProvider ..> PrihlasenyPouzivatel

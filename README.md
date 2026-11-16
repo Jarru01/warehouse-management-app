@@ -16,6 +16,9 @@ manages racks, the **worker** moves between rooms and handles goods, and the
 - **Warehouse rules** — racks with fixed capacity and numbered slots, hands-full workers, room-bound picking, recipient-checked pickup, safe dismissal of workers holding goods, and protected single racks in the receiving and dispatch rooms.
 - **PostgreSQL persistence** — Spring Data JPA entities with optimistic locking, Flyway schema migrations, seeded with a director and three rooms on first start.
 - **Clear errors** — conflicting simultaneous changes return `409` (API) or a message on the page instead of a crash; friendly error pages without stack traces.
+- **Brute-force protection** — after 5 failed logins per account or 20 per IP address within 15 minutes, further attempts are refused until the window ends.
+- **Audit log** — every login, failed or blocked login, logout and change is stored with who, when and what; the director sees the latest events on the dashboard and through the API.
+- **Health checks** — `/actuator/health` (plus `liveness` and `readiness`) for monitoring; strict security headers including a Content-Security-Policy.
 - **Tests** — domain services, repositories and both web layers covered by integration tests running against a real PostgreSQL via Testcontainers.
 
 ## 🧱 Tech Stack
@@ -98,13 +101,15 @@ sets a temporary password for them in the workers table.
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/status` | Application and database status |
+| GET | `/api/status` | Application and database status (`503` when the database is down) |
+| GET | `/actuator/health` | Health check (`/liveness`, `/readiness` sub-paths); public |
 | GET | `/api/csrf` | CSRF token for the current session |
 | POST | `/api/heslo` | Change your own password (`sucasneHeslo`, `noveHeslo`) |
 | GET | `/api/miestnosti` | List rooms |
 | GET | `/api/miestnosti/{kluc}/regale` | Racks and their items in a room |
 | GET | `/api/riaditel/{id}` | Director profile |
 | GET | `/api/riaditel/pracovnici` | List workers |
+| GET | `/api/riaditel/audit` | Latest audit events (`pocet` up to 200, optional `akcia`, e.g. `NEUSPESNE_PRIHLASENIE`) |
 | POST | `/api/riaditel/pracovnici` | Hire a worker (`id`, `meno`, `priezvisko`, `heslo`) |
 | DELETE | `/api/riaditel/pracovnici/{id}` | Dismiss a worker |
 | POST | `/api/riaditel/pracovnici/{id}/heslo` | Set a new temporary password for a worker (`heslo`) |
@@ -125,7 +130,7 @@ because login rotates the session. Access rules:
 
 | Path | Allowed |
 |---|---|
-| `/api/status`, `/api/csrf` | everyone |
+| `/api/status`, `/api/csrf`, `/actuator/health/**`, `/actuator/info` | everyone |
 | `/api/heslo` | any logged-in user |
 | `/api/riaditel/**` | director |
 | `/api/pracovnik/{id}/**` | the worker whose ID is `{id}` |
@@ -198,11 +203,11 @@ starts its own disposable PostgreSQL instance.
 |---|---|
 | `warehouse.domain` | JPA entities with the warehouse model (`Miestnost`/`VelkySklad`/`MalySklad`, `Regal`, `Tovar`, `Pracovnik`, `Riaditel`, `Zakaznik`, `ZakaznikInfo`), with optimistic locking |
 | `warehouse.repository` | Spring Data JPA repositories with fetch-join queries for read models |
-| `warehouse.service` | `SkladService` — transactional operations and business rules; `HeslaService` — password rules and hashing |
+| `warehouse.service` | `SkladService` — transactional operations and business rules; `HeslaService` — password rules and hashing; `AuditService` — audit log |
 | `warehouse.web.api` | REST controllers, DTOs, mapper and the `ProblemDetail` exception handler |
 | `warehouse.web.view` | Thymeleaf controllers, registration, password change and form validation (same DTO rules as the API) |
-| `warehouse.security` | Spring Security configuration, login by role, ID and password, accounts, forced change of temporary passwords |
-| `src/main/resources/db/migration` | Flyway migrations (`V1__…`, `V2__…`) |
+| `warehouse.security` | Spring Security configuration, login by role, ID and password, login attempt limits, accounts, forced change of temporary passwords |
+| `src/main/resources/db/migration` | Flyway migrations (`V1__…` to `V3__…`) |
 | `warehouse.config` | Seed data (`DataInitializer`) |
 
 The class diagram is in [`docs/uml.puml`](docs/uml.puml).
@@ -213,7 +218,7 @@ Configuration is split into Spring profiles:
 
 | File | Used for | Contents |
 |---|---|---|
-| `application.yml` | every environment | port, Flyway, `ddl-auto: validate`, error pages without stack traces |
+| `application.yml` | every environment | port, Flyway, `ddl-auto: validate`, error pages without stack traces, session cookie, Actuator, login attempt limits (`warehouse.prihlasenie.*`) |
 | `application-dev.yml` | local development (the default profile) | database from `compose.yaml`, director's temporary password, template cache off |
 | `application-prod.yml` | production (`SPRING_PROFILES_ACTIVE=prod`) | secrets only from environment variables, no defaults |
 

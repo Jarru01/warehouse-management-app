@@ -118,6 +118,38 @@
         </div>
     </section>
 
+    <section class="card">
+        <div class="card-head">
+            <h2>Posledné udalosti</h2>
+            <span class="muted">Audit prihlásení a zmien</span>
+        </div>
+        <p class="empty-state" th:if="${udalosti.isEmpty()}">Zatiaľ žiadne udalosti.</p>
+        <div class="table-wrap" th:if="${!udalosti.isEmpty()}">
+            <table>
+                <caption>Najnovšie záznamy auditu</caption>
+                <thead>
+                <tr>
+                    <th scope="col">Čas</th>
+                    <th scope="col">Používateľ</th>
+                    <th scope="col">Udalosť</th>
+                    <th scope="col">Detail</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="udalost : ${udalosti}">
+                    <td class="num muted" th:text="${udalost.cas}"></td>
+                    <td class="num" th:text="${udalost.pouzivatel}"></td>
+                    <td>
+                        <span class="badge" th:classappend="${udalost.varovanie} ? 'badge-gold' : 'badge-blue'"
+                              th:text="${udalost.akcia}"></span>
+                    </td>
+                    <td class="truncate" th:text="${udalost.detail} ?: '—'" th:title="${udalost.detail}"></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
     <section class="card" th:each="miestnost : ${miestnosti}">
         <div class="card-head">
             <h2 th:text="${miestnost.kluc}"></h2>
@@ -136,10 +168,9 @@
                         <button type="submit" class="btn btn-danger btn-sm">Odstrániť</button>
                     </form>
                 </div>
-                <div class="meter" th:classappend="${obsadene >= regal.kapacita} ? 'meter-full'"
-                     role="img" th:attr="aria-label=${obsadene + ' z ' + regal.kapacita + ' slotov obsadených'}">
-                    <span th:style="'width:' + ${obsadene * 100 / regal.kapacita} + '%'"></span>
-                </div>
+                <progress class="meter" th:classappend="${obsadene >= regal.kapacita} ? 'meter-full'"
+                          th:max="${regal.kapacita}" th:value="${obsadene}"
+                          th:attr="aria-label=${obsadene + ' z ' + regal.kapacita + ' slotov obsadených'}"></progress>
                 <div class="meter-label num" th:text="${obsadene} + ' / ' + ${regal.kapacita} + ' slotov obsadených'"></div>
                 <ul>
                     <li th:each="tovar : ${regal.tovar}">

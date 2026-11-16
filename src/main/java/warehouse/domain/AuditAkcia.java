@@ -1,0 +1,24 @@
+package warehouse.domain;
+
+/**
+ * Druh udalosti zapisanej do auditneho zaznamu.
+ * @author Juraj
+ */
+public enum AuditAkcia {
+    PRIHLASENIE,
+    NEUSPESNE_PRIHLASENIE,
+    ZABLOKOVANE_PRIHLASENIE,
+    ODHLASENIE,
+    REGISTRACIA,
+    ZMENA_HESLA,
+    RESET_HESLA,
+    PRIJATIE_PRACOVNIKA,
+    VYLUCENIE_PRACOVNIKA,
+    PRIDANIE_REGALU,
+    ODSTRANENIE_REGALU,
+    PRESUN_PRACOVNIKA,
+    ZOBRATIE_TOVARU,
+    ULOZENIE_TOVARU,
+    VLOZENIE_TOVARU,
+    VYZDVIHNUTIE_TOVARU
+}

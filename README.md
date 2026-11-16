@@ -21,6 +21,7 @@ manages racks, the **worker** moves between rooms and handles goods, and the
 - **Brute-force protection** — after 5 failed logins per account or 20 per IP address within 15 minutes, further attempts are refused until the window ends.
 - **Audit log** — every login, failed or blocked login, logout and change is stored with who, when and what; the director sees the latest events on the dashboard and through the API. Records older than 365 days are deleted by a nightly maintenance job.
 - **Health checks** — `/actuator/health` (plus `liveness` and `readiness`) for monitoring; strict security headers including a Content-Security-Policy.
+- **Docker** — multi-stage, layered image running as a non-root user with a built-in health check; one command starts the whole stack behind an HTTPS reverse proxy.
 - **Tests** — domain services, repositories and both web layers covered by integration tests running against a real PostgreSQL via Testcontainers.
 
 ## 🧱 Tech Stack
@@ -33,6 +34,7 @@ manages racks, the **worker** moves between rooms and handles goods, and the
 | Database | PostgreSQL 17, Flyway migrations |
 | Build | Gradle 9 (wrapper included) |
 | Tests | JUnit 5, MockMvc, Testcontainers |
+| Packaging | Docker (Eclipse Temurin 21 JRE), Caddy as HTTPS reverse proxy |
 
 ## ✅ Requirements
 
@@ -221,13 +223,56 @@ curl -b cookies.txt -X POST http://localhost:8080/api/riaditel/pracovnici \
   -d '{"id":"5","meno":"Peter","priezvisko":"Novak","heslo":"zmen-ma-123"}'
 ```
 
+## 🐳 Docker
+
+The whole application runs in containers with one command: PostgreSQL,
+Mailpit, the application (production profile) and Caddy as the HTTPS reverse
+proxy in front of it.
+
+1. Create the local secrets file once and set the director's temporary password:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Build the image and start everything (stop a locally running app first,
+   both use port 8443):
+
+   ```bash
+   docker compose --profile app up -d --build
+   docker compose --profile app ps     # app and proxy become "healthy"/"Up"
+   ```
+
+3. Open <https://localhost:8443>. Caddy signs the certificate with its own local
+   authority, so the browser shows a warning; continue to the site. E-mails are
+   in Mailpit at <http://localhost:8025>.
+
+The application container publishes no port of its own; only the proxy is
+reachable. It runs as the unprivileged `warehouse` user, refuses to start
+without its secrets, and reports its state through the Docker health check
+(`/actuator/health/liveness`). The image build skips tests; CI runs them and
+then builds the image.
+
+| Task | Command |
+|---|---|
+| Start the full stack | `docker compose --profile app up -d --build` |
+| Follow application logs | `docker compose logs -f app` |
+| Stop the full stack (keep data) | `docker compose --profile app down` |
+| Build only the image | `docker build -t warehouse-management-app:2.0.0 .` |
+
+On a real server, replace `https://localhost:8443` in `deploy/Caddyfile` with
+the public domain and remove `tls internal`; Caddy then obtains a Let's Encrypt
+certificate automatically. Set `PUBLIC_URL`, the database credentials and a real
+SMTP server in the `app` service's environment.
+
 ## 🧰 Common Commands
 
 | Task | Command |
 |---|---|
-| Start database | `docker compose up -d` |
-| Stop database (keep data) | `docker compose down` |
+| Start database and mail server | `docker compose up -d` |
+| Stop them (keep data) | `docker compose down` |
 | Reset database | `docker compose down -v` |
+| Start the full Docker stack | `docker compose --profile app up -d --build` |
 | Run app in development mode | `./gradlew bootRun` |
 | Build runnable jar | `./gradlew bootJar` |
 | Build and run all tests | `./gradlew build` |
@@ -255,6 +300,8 @@ starts its own disposable PostgreSQL instance.
 - **Port 5432 already in use** — a locally installed PostgreSQL is running. Stop it or change the published port in `compose.yaml`.
 - **Stale or broken data** — reset with `docker compose down -v` followed by `docker compose up -d`.
 - **`./gradlew` not recognized on Windows** — use `.\gradlew.bat`.
+- **`warehouse-app` keeps restarting** — usually a missing or too short `WAREHOUSE_RIADITEL_HESLO` in `.env`; `docker compose logs app` shows the reason.
+- **Port 8443 already in use** — the app is still running locally with the `https` profile; stop it before starting the Docker stack.
 
 ## 📁 Architecture
 

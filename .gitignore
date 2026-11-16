@@ -1,6 +1,9 @@
 # Local TLS keystores (self-signed development certificates)
 certs/
 
+# Local secrets for docker compose (see .env.example)
+.env
+
 # Build output
 out/
 build/

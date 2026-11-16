@@ -14,6 +14,7 @@ import warehouse.domain.VelkySklad;
 import warehouse.repository.MiestnostRepository;
 import warehouse.repository.RegalRepository;
 import warehouse.repository.RiaditelRepository;
+import warehouse.service.HeslaService;
 
 /**
  * Naplni databazu pociatocnymi datami, ak este neexistuju.
@@ -38,6 +39,10 @@ public class DataInitializer implements ApplicationRunner {
     public DataInitializer(RiaditelRepository riaditelRepository, MiestnostRepository miestnostRepository,
                            RegalRepository regalRepository, PasswordEncoder passwordEncoder,
                            @Value("${warehouse.riaditel.heslo}") String hesloRiaditela) {
+        if (hesloRiaditela == null || hesloRiaditela.strip().length() < HeslaService.MIN_DLZKA_HESLA) {
+            throw new IllegalStateException("Vlastnost warehouse.riaditel.heslo (WAREHOUSE_RIADITEL_HESLO) musi mat "
+                    + "aspon " + HeslaService.MIN_DLZKA_HESLA + " znakov.");
+        }
         this.riaditelRepository = riaditelRepository;
         this.miestnostRepository = miestnostRepository;
         this.regalRepository = regalRepository;

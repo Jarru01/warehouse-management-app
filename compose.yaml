@@ -1,3 +1,9 @@
+# Development:  docker compose up -d
+#   starts PostgreSQL and the Mailpit test mail server; run the app with Gradle.
+# Full stack:   docker compose --profile app up -d --build
+#   additionally builds and runs the application container (prod profile)
+#   behind a Caddy HTTPS reverse proxy at https://localhost:8443.
+#   Needs a .env file with WAREHOUSE_RIADITEL_HESLO (see .env.example).
 services:
   db:
     image: postgres:17-alpine
@@ -25,5 +31,47 @@ services:
       - "1025:1025"
       - "8025:8025"
 
+  app:
+    profiles: ["app"]
+    build: .
+    image: warehouse-management-app:2.0.0
+    container_name: warehouse-app
+    depends_on:
+      db:
+        condition: service_healthy
+      mail:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://db:5432/sklad
+      DB_USERNAME: warehouse
+      DB_PASSWORD: warehouse
+      WAREHOUSE_RIADITEL_HESLO: ${WAREHOUSE_RIADITEL_HESLO:-}
+      PUBLIC_URL: https://localhost:8443
+      MAIL_HOST: mail
+      MAIL_PORT: "1025"
+      MAIL_SMTP_AUTH: "false"
+      MAIL_STARTTLS: "false"
+      MAIL_FROM: "Warehouse App <noreply@warehouse.local>"
+    # No published port: the application is reachable only through the proxy.
+    expose:
+      - "8080"
+    restart: unless-stopped
+
+  proxy:
+    profiles: ["app"]
+    image: caddy:2.10-alpine
+    container_name: warehouse-proxy
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - warehouse-caddy:/data
+    restart: unless-stopped
+
 volumes:
   warehouse-pgdata:
+  warehouse-caddy:

@@ -17,3 +17,13 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
       - name: Build and test
         run: ./gradlew build --no-daemon
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the Docker image
+        run: docker build --tag warehouse-management-app:ci .
+      - name: Check the image runs as a non-root user
+        run: test "$(docker image inspect --format '{{.Config.User}}' warehouse-management-app:ci)" = "warehouse"

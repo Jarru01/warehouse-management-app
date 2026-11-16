@@ -1,0 +1,10 @@
+# HTTPS reverse proxy in front of the application container.
+# "tls internal" uses Caddy's own local certificate authority, so browsers show a
+# warning until that CA is trusted. On a real server, replace the address with
+# the public domain (e.g. sklad.example.com) and drop "tls internal": Caddy then
+# obtains a Let's Encrypt certificate automatically.
+https://localhost:8443 {
+	tls internal
+	encode gzip
+	reverse_proxy app:8080
+}

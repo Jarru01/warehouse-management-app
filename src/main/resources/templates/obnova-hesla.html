@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="sk" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: hlavicka('Nové heslo')}"></head>
+<body class="page-login">
+<a class="skip-link" href="#obsah">Preskočiť na obsah</a>
+<div class="login-head">
+    <span class="brand-mark" aria-hidden="true">WA</span>
+    <h1>Nové heslo</h1>
+    <p>Nastav si nové heslo k svojmu účtu.</p>
+</div>
+<main id="obsah" class="container container-narrow">
+    <div th:replace="~{fragments/layout :: spravy}"></div>
+    <section class="card">
+        <form method="post" th:action="@{/heslo/obnova}">
+            <input type="hidden" name="token" th:value="${token}">
+            <div class="field">
+                <label for="nove-heslo">Nové heslo</label>
+                <input id="nove-heslo" type="password" name="noveHeslo" autocomplete="new-password"
+                       minlength="8" maxlength="72" required autofocus>
+                <span class="hint">Aspoň 8 znakov.</span>
+            </div>
+            <div class="field">
+                <label for="nove-heslo-znova">Nové heslo znova</label>
+                <input id="nove-heslo-znova" type="password" name="noveHesloZnova" autocomplete="new-password"
+                       minlength="8" maxlength="72" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Uložiť nové heslo</button>
+        </form>
+    </section>
+</main>
+<footer th:replace="~{fragments/layout :: pata}"></footer>
+<script th:replace="~{fragments/layout :: appskript}"></script>
+</body>
+</html>

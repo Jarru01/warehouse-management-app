@@ -195,15 +195,19 @@ public class SkladService {
      * @param id id zakaznika
      * @param meno meno zakaznika
      * @param priezvisko priezvisko zakaznika
+     * @param email e-mail na obnovu hesla
      * @param heslo heslo zakaznika, ulozi sa iba jeho hash
      * @return registrovany zakaznik
      */
     @Transactional
-    public Zakaznik registrujZakaznika(String id, String meno, String priezvisko, String heslo) {
+    public Zakaznik registrujZakaznika(String id, String meno, String priezvisko, String email, String heslo) {
         if (this.zakaznikRepository.existsById(id)) {
             throw new NeplatnaOperaciaException("Zakaznik so zadanym ID uz existuje.");
         }
-        Zakaznik zakaznik = new Zakaznik(id, meno, priezvisko);
+        if (this.zakaznikRepository.existsByEmail(Zakaznik.normalizujEmail(email))) {
+            throw new NeplatnaOperaciaException("Zakaznik so zadanym e-mailom uz existuje.");
+        }
+        Zakaznik zakaznik = new Zakaznik(id, meno, priezvisko, email);
         zakaznik.nastavHeslo(this.heslaService.zahesuj(heslo), false);
         Zakaznik ulozeny = this.zakaznikRepository.save(zakaznik);
         this.auditService.zaznamenajPre("ZAKAZNIK:" + id, AuditAkcia.REGISTRACIA,

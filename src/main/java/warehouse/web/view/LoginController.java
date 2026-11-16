@@ -62,20 +62,23 @@ public class LoginController {
      * @param id zvolene id zakaznika
      * @param meno meno zakaznika
      * @param priezvisko priezvisko zakaznika
+     * @param email e-mail zakaznika
      * @param heslo heslo zakaznika
      * @param attributes flash atributy
      * @return presmerovanie na prihlasenie zakaznika
      */
     @PostMapping("/registracia")
     public String registracia(@RequestParam String id, @RequestParam String meno, @RequestParam String priezvisko,
-                              @RequestParam String heslo, RedirectAttributes attributes) {
-        Optional<String> chyby = this.validator.chyby(new RegistraciaZakaznikaRequest(id, meno, priezvisko, heslo));
+                              @RequestParam String email, @RequestParam String heslo,
+                              RedirectAttributes attributes) {
+        Optional<String> chyby = this.validator.chyby(
+                new RegistraciaZakaznikaRequest(id, meno, priezvisko, email, heslo));
         if (chyby.isPresent()) {
             attributes.addFlashAttribute("chyba", chyby.get());
             return "redirect:/?rola=zakaznik";
         }
         try {
-            this.skladService.registrujZakaznika(id, meno, priezvisko, heslo);
+            this.skladService.registrujZakaznika(id, meno, priezvisko, email, heslo);
             attributes.addFlashAttribute("sprava", "Registracia prebehla. Teraz sa mozes prihlasit.");
         } catch (NeplatnaOperaciaException e) {
             attributes.addFlashAttribute("chyba", e.getMessage());

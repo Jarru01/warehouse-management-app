@@ -17,6 +17,7 @@ import warehouse.domain.Tovar;
 import warehouse.domain.ZakaznikInfo;
 import warehouse.repository.TovarRepository;
 
+import java.time.Duration;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -44,8 +45,26 @@ class SkladServiceTest extends AbstractIntegrationTest {
 
     @BeforeEach
     void zaregistrujZakaznikov() {
-        this.skladService.registrujZakaznika("10", "Jan", "Novy", HESLO);
-        this.skladService.registrujZakaznika("20", "Peter", "Novak", HESLO);
+        this.skladService.registrujZakaznika("10", "Jan", "Novy", "jan@example.com", HESLO);
+        this.skladService.registrujZakaznika("20", "Peter", "Novak", "peter@example.com", HESLO);
+    }
+
+    @Test
+    void emailZakaznikaJeJedinecnyBezOhladuNaVelkostPismen() {
+        assertEquals("jan@example.com", this.skladService.zakaznik("10").getEmail());
+        assertThrows(NeplatnaOperaciaException.class,
+                () -> this.skladService.registrujZakaznika("30", "Eva", "Mala", " JAN@Example.com ", HESLO));
+    }
+
+    @Test
+    void udrzbaZmazeStareAuditneZaznamy() {
+        this.skladService.pridajRegal(2);
+
+        assertEquals(0, this.auditService.zmazStarsieAko(Duration.ofDays(1)));
+        assertFalse(this.auditService.najnovsie(AuditAkcia.PRIDANIE_REGALU, 5).isEmpty());
+
+        assertTrue(this.auditService.zmazStarsieAko(Duration.ofSeconds(-60)) > 0);
+        assertTrue(this.auditService.najnovsie(AuditAkcia.PRIDANIE_REGALU, 5).isEmpty());
     }
 
     @Test
@@ -98,13 +117,13 @@ class SkladServiceTest extends AbstractIntegrationTest {
         assertThrows(NeplatnaOperaciaException.class,
                 () -> this.skladService.prijmiPracovnika("1", "Peter", "Novak", "kratke"));
         assertThrows(NeplatnaOperaciaException.class,
-                () -> this.skladService.registrujZakaznika("30", "Eva", "Mala", "kratke"));
+                () -> this.skladService.registrujZakaznika("30", "Eva", "Mala", "eva@example.com", "kratke"));
     }
 
     @Test
     void duplicitnaRegistraciaZakaznikaZlyha() {
         assertThrows(NeplatnaOperaciaException.class,
-                () -> this.skladService.registrujZakaznika("10", "Iny", "Clovek", HESLO));
+                () -> this.skladService.registrujZakaznika("10", "Iny", "Clovek", "iny@example.com", HESLO));
         assertEquals("Jan", this.skladService.zakaznik("10").getMeno());
     }
 

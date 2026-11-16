@@ -7,8 +7,15 @@ spring:
     password: warehouse
   thymeleaf:
     cache: false
+  mail:
+    # Mailpit from compose.yaml catches every e-mail; read them at http://localhost:8025
+    host: localhost
+    port: 1025
 
 warehouse:
+  # Base address used in links inside e-mails. Never taken from the request,
+  # so a forged Host header cannot redirect recovery links.
+  verejna-adresa: http://localhost:8080
   riaditel:
     # Initial password of the seeded director, applied only while the director has none.
     # The director must change it after the first login.

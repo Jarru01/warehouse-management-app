@@ -84,7 +84,8 @@ public class SecurityConfig {
                         .referrerPolicy(referrer -> referrer.policy(
                                 ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN)))
                 .authorizeHttpRequests(pristup -> pristup
-                        .requestMatchers("/", "/registracia", "/style.css", "/app.js", "/error",
+                        .requestMatchers("/", "/registracia", "/heslo/zabudnute", "/heslo/obnova",
+                                "/style.css", "/app.js", "/error",
                                 "/api/status", "/api/csrf",
                                 "/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/riaditel", "/riaditel/**", "/api/riaditel/**").hasRole(Rola.RIADITEL.name())

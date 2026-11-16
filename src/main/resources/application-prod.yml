@@ -1,11 +1,38 @@
-# Production: every secret comes from an environment variable. There are no
+# Production behind an HTTPS reverse proxy (nginx, Traefik, a cloud load
+# balancer). Every secret comes from an environment variable. There are no
 # defaults, so the application refuses to start when one is missing.
 spring:
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+  thymeleaf:
+    cache: true
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${MAIL_SMTP_AUTH:true}
+      mail.smtp.starttls.enable: ${MAIL_STARTTLS:true}
+
+server:
+  # Trust X-Forwarded-For / X-Forwarded-Proto only from the reverse proxy. The
+  # client IP then reaches the login limits and the audit log, and requests that
+  # arrived over HTTPS are recognised as secure (Secure cookie, HSTS header).
+  forward-headers-strategy: native
+  tomcat:
+    remoteip:
+      internal-proxies: ${TRUSTED_PROXIES:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}|127\.\d{1,3}\.\d{1,3}\.\d{1,3}|0:0:0:0:0:0:0:1|::1}
+  servlet:
+    session:
+      cookie:
+        secure: true
 
 warehouse:
+  verejna-adresa: ${PUBLIC_URL}
   riaditel:
     heslo: ${WAREHOUSE_RIADITEL_HESLO}
+  obnova-hesla:
+    odosielatel: ${MAIL_FROM}

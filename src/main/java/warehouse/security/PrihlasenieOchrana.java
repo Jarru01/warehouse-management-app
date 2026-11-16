@@ -2,29 +2,38 @@ package warehouse.security;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
 
 /**
  * Obmedzi pocet neuspesnych prihlaseni na ucet (rola a ID) a na IP adresu v casovom okne. Po prekroceni limitu
  * sa dalsie pokusy odmietaju, kym okno od prveho neuspechu neskonci. Blokuje sa aj neexistujuci ucet, takze
- * blokovanie neprezradi, ktore ID existuje. Pocitadla su v pamati a po restarte sa vynuluju.
+ * blokovanie neprezradi, ktore ID existuje. Pocitadla su v databaze: preziju restart a zdielaju ich vsetky
+ * spustene instancie aplikacie.
  * @author Juraj
  */
 @Component
 public class PrihlasenieOchrana {
     private static final int MAX_DLZKA_KLUCA = 120;
-    private static final int UPRATAT_NAD = 10_000;
 
-    private record Pokusy(int pocet, Instant zaciatok) {
-    }
+    private static final String PRIPOCITAJ = """
+            insert into prihlasenie_pokusy (kluc, pocet, zaciatok) values (:kluc, 1, :teraz)
+            on conflict (kluc) do update set
+                pocet = case when prihlasenie_pokusy.zaciatok <= :hranica then 1
+                             else prihlasenie_pokusy.pocet + 1 end,
+                zaciatok = case when prihlasenie_pokusy.zaciatok <= :hranica then :teraz
+                                else prihlasenie_pokusy.zaciatok end
+            """;
 
-    private final Map<String, Pokusy> zlyhania = new ConcurrentHashMap<>();
+    private final NamedParameterJdbcTemplate jdbc;
     private final int maxNaUcet;
     private final int maxZAdresy;
     private final Duration okno;
@@ -32,18 +41,21 @@ public class PrihlasenieOchrana {
 
     /**
      * Vytvori ochranu s limitmi z konfiguracie.
+     * @param jdbc pristup k databaze
      * @param maxNaUcet povoleny pocet neuspechov na ucet v okne
      * @param maxZAdresy povoleny pocet neuspechov z jednej IP adresy v okne
      * @param okno dlzka okna
      */
     @Autowired
-    public PrihlasenieOchrana(@Value("${warehouse.prihlasenie.max-pokusov-na-ucet:5}") int maxNaUcet,
+    public PrihlasenieOchrana(NamedParameterJdbcTemplate jdbc,
+                              @Value("${warehouse.prihlasenie.max-pokusov-na-ucet:5}") int maxNaUcet,
                               @Value("${warehouse.prihlasenie.max-pokusov-z-adresy:20}") int maxZAdresy,
                               @Value("${warehouse.prihlasenie.okno:15m}") Duration okno) {
-        this(maxNaUcet, maxZAdresy, okno, Clock.systemUTC());
+        this(jdbc, maxNaUcet, maxZAdresy, okno, Clock.systemUTC());
     }
 
-    PrihlasenieOchrana(int maxNaUcet, int maxZAdresy, Duration okno, Clock clock) {
+    PrihlasenieOchrana(NamedParameterJdbcTemplate jdbc, int maxNaUcet, int maxZAdresy, Duration okno, Clock clock) {
+        this.jdbc = jdbc;
         this.maxNaUcet = maxNaUcet;
         this.maxZAdresy = maxZAdresy;
         this.okno = okno;
@@ -71,40 +83,45 @@ public class PrihlasenieOchrana {
         if (adresa != null) {
             this.pripocitaj(kluc("adresa:", adresa));
         }
-        if (this.zlyhania.size() > UPRATAT_NAD) {
-            this.zlyhania.entrySet().removeIf(zaznam -> this.vyprsal(zaznam.getValue()));
-        }
     }
 
     /**
-     * Vynuluje pocitadlo uctu po uspesnom prihlaseni. Pocitadlo adresy zostava.
+     * Vynuluje pocitadlo uctu po uspesnom prihlaseni alebo obnove hesla. Pocitadlo adresy zostava.
      * @param ucet ucet v tvare ROLA:id
      */
     public void zaznamenajUspech(String ucet) {
-        this.zlyhania.remove(kluc("ucet:", ucet));
+        this.jdbc.update("delete from prihlasenie_pokusy where kluc = :kluc",
+                new MapSqlParameterSource("kluc", kluc("ucet:", ucet)));
+    }
+
+    /**
+     * Zmaze pocitadla, ktorych okno uz skoncilo. Vola ju pravidelna udrzba.
+     * @return pocet zmazanych pocitadiel
+     */
+    public int zmazExpirovane() {
+        return this.jdbc.update("delete from prihlasenie_pokusy where zaciatok <= :hranica",
+                new MapSqlParameterSource("hranica", this.hranica()));
     }
 
     private boolean prekroceny(String kluc, int max) {
-        Pokusy pokusy = this.zlyhania.get(kluc);
-        if (pokusy == null) {
-            return false;
-        }
-        if (this.vyprsal(pokusy)) {
-            this.zlyhania.remove(kluc, pokusy);
-            return false;
-        }
-        return pokusy.pocet() >= max;
+        List<Integer> pocet = this.jdbc.queryForList(
+                "select pocet from prihlasenie_pokusy where kluc = :kluc and zaciatok > :hranica",
+                new MapSqlParameterSource("kluc", kluc).addValue("hranica", this.hranica()), Integer.class);
+        return !pocet.isEmpty() && pocet.get(0) >= max;
     }
 
     private void pripocitaj(String kluc) {
-        Instant teraz = Instant.now(this.clock);
-        this.zlyhania.compute(kluc, (k, pokusy) -> pokusy == null || this.vyprsal(pokusy)
-                ? new Pokusy(1, teraz)
-                : new Pokusy(pokusy.pocet() + 1, pokusy.zaciatok()));
+        this.jdbc.update(PRIPOCITAJ, new MapSqlParameterSource("kluc", kluc)
+                .addValue("teraz", utc(Instant.now(this.clock)))
+                .addValue("hranica", this.hranica()));
     }
 
-    private boolean vyprsal(Pokusy pokusy) {
-        return !Instant.now(this.clock).isBefore(pokusy.zaciatok().plus(this.okno));
+    private OffsetDateTime hranica() {
+        return utc(Instant.now(this.clock).minus(this.okno));
+    }
+
+    private static OffsetDateTime utc(Instant cas) {
+        return cas.atOffset(ZoneOffset.UTC);
     }
 
     private static String kluc(String typ, String hodnota) {

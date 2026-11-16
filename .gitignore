@@ -1,3 +1,6 @@
+# Local TLS keystores (self-signed development certificates)
+certs/
+
 # Build output
 out/
 build/

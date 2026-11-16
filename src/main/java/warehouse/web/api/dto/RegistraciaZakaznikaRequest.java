@@ -1,5 +1,6 @@
 package warehouse.web.api.dto;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -9,6 +10,7 @@ import jakarta.validation.constraints.Size;
  * @param id zvolene id zakaznika
  * @param meno meno zakaznika
  * @param priezvisko priezvisko zakaznika
+ * @param email e-mail na obnovu zabudnuteho hesla
  * @param heslo heslo na prihlasenie
  * @author Juraj
  */
@@ -22,6 +24,9 @@ public record RegistraciaZakaznikaRequest(
         @NotBlank(message = "Priezvisko je povinne.")
         @Size(max = 100, message = "Priezvisko moze mat najviac 100 znakov.")
         @Pattern(regexp = "\\p{L}+", message = "Priezvisko musi obsahovat iba pismena.") String priezvisko,
+        @NotBlank(message = "E-mail je povinny.")
+        @Size(max = 254, message = "E-mail moze mat najviac 254 znakov.")
+        @Email(regexp = "[^@\\s]+@[^@\\s]+\\.[^@\\s]+", message = "Zadaj platny e-mail.") String email,
         @NotBlank(message = "Heslo je povinne.")
         @Size(min = 8, max = 72, message = "Heslo musi mat 8 az 72 znakov.") String heslo) {
 
@@ -31,6 +36,7 @@ public record RegistraciaZakaznikaRequest(
      */
     @Override
     public String toString() {
-        return "RegistraciaZakaznikaRequest[id=" + this.id + ", meno=" + this.meno + ", priezvisko=" + this.priezvisko + "]";
+        return "RegistraciaZakaznikaRequest[id=" + this.id + ", meno=" + this.meno + ", priezvisko=" + this.priezvisko
+                + ", email=" + this.email + "]";
     }
 }

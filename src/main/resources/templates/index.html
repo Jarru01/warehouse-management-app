@@ -69,6 +69,7 @@
             </div>
             <button type="submit" class="btn btn-primary btn-block">Prihlásiť sa</button>
         </form>
+        <p class="text-center form-link"><a th:href="@{/heslo/zabudnute}">Zabudol si heslo?</a></p>
     </section>
 
     <section class="card" th:if="${rola == 'zakaznik'}">
@@ -86,6 +87,11 @@
             <div class="field">
                 <label for="registracia-priezvisko">Priezvisko</label>
                 <input id="registracia-priezvisko" type="text" name="priezvisko" autocomplete="family-name" required>
+            </div>
+            <div class="field">
+                <label for="registracia-email">E-mail</label>
+                <input id="registracia-email" type="email" name="email" autocomplete="email" maxlength="254" required>
+                <span class="hint">Použijeme ho iba na obnovu zabudnutého hesla.</span>
             </div>
             <div class="field">
                 <label for="registracia-heslo">Heslo</label>

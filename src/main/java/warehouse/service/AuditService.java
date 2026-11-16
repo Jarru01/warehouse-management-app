@@ -13,6 +13,7 @@ import warehouse.domain.AuditZaznam;
 import warehouse.repository.AuditZaznamRepository;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
@@ -85,6 +86,16 @@ public class AuditService {
     @Transactional(readOnly = true)
     public List<AuditZaznam> najnovsie(AuditAkcia akcia, int pocet) {
         return this.repository.findByAkciaOrderByCasDescIdDesc(akcia, PageRequest.of(0, obmedz(pocet)));
+    }
+
+    /**
+     * Zmaze zaznamy starsie ako doba uchovavania.
+     * @param uchovavat ako dlho sa zaznamy uchovavaju
+     * @return pocet zmazanych zaznamov
+     */
+    @Transactional
+    public int zmazStarsieAko(Duration uchovavat) {
+        return this.repository.zmazStarsieAko(Instant.now(this.clock).minus(uchovavat));
     }
 
     private static String aktualnyPouzivatel() {

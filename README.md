@@ -10,14 +10,16 @@ manages racks, the **worker** moves between rooms and handles goods, and the
 
 ## 🚀 Features
 
-- **Secure login** — Spring Security with BCrypt-hashed passwords, CSRF protection and session fixation protection; customers register their own accounts.
+- **Secure login** — Spring Security with BCrypt-hashed passwords, CSRF protection and session fixation protection; customers register their own accounts and can recover a forgotten password by e-mail.
+- **HTTPS** — local HTTPS with a self-signed certificate, or production behind an HTTPS reverse proxy with trusted `X-Forwarded-*` headers, `Secure` cookies and HSTS.
+- **Multi-instance ready** — sessions (Spring Session JDBC) and login attempt counters live in PostgreSQL, so they survive restarts and are shared by every instance.
 - **Role-based areas** — director, worker and customer areas; pages and REST API check the role, and workers and customers can act only on their own ID.
 - **REST API** — versionless JSON endpoints under `/api` with request DTOs, Bean Validation and RFC 9457 `ProblemDetail` errors.
 - **Warehouse rules** — racks with fixed capacity and numbered slots, hands-full workers, room-bound picking, recipient-checked pickup, safe dismissal of workers holding goods, and protected single racks in the receiving and dispatch rooms.
 - **PostgreSQL persistence** — Spring Data JPA entities with optimistic locking, Flyway schema migrations, seeded with a director and three rooms on first start.
 - **Clear errors** — conflicting simultaneous changes return `409` (API) or a message on the page instead of a crash; friendly error pages without stack traces.
 - **Brute-force protection** — after 5 failed logins per account or 20 per IP address within 15 minutes, further attempts are refused until the window ends.
-- **Audit log** — every login, failed or blocked login, logout and change is stored with who, when and what; the director sees the latest events on the dashboard and through the API.
+- **Audit log** — every login, failed or blocked login, logout and change is stored with who, when and what; the director sees the latest events on the dashboard and through the API. Records older than 365 days are deleted by a nightly maintenance job.
 - **Health checks** — `/actuator/health` (plus `liveness` and `readiness`) for monitoring; strict security headers including a Content-Security-Policy.
 - **Tests** — domain services, repositories and both web layers covered by integration tests running against a real PostgreSQL via Testcontainers.
 
@@ -40,12 +42,15 @@ manages racks, the **worker** moves between rooms and handles goods, and the
 ## ▶️ Quick Start
 
 1. **Start Docker Desktop** and wait until it is running — the database container needs it.
-2. **Start PostgreSQL** from the project folder:
+2. **Start PostgreSQL and the test mail server** from the project folder:
 
    ```bash
    docker compose up -d
-   docker compose ps          # expect warehouse-db with status "Up (healthy)"
+   docker compose ps          # expect warehouse-db "Up (healthy)" and warehouse-mail "Up"
    ```
+
+   E-mails the app sends (password recovery) never leave your machine; read
+   them in the Mailpit inbox at <http://localhost:8025>.
 
 3. **Start the application** — pick one:
 
@@ -58,7 +63,7 @@ manages racks, the **worker** moves between rooms and handles goods, and the
    java -jar build/libs/warehouse-management-app-2.0.0.jar
    ```
 
-4. **Open <http://localhost:8080>** and log in (see [Login](#-login)).
+4. **Open <http://localhost:8080>** and log in (see [Login](#-login)). For HTTPS see [HTTPS](#-https).
 
 On Windows use `gradlew.bat` instead of `./gradlew`. Both `bootRun` and
 `java -jar` keep running until you stop them with `Ctrl+C` in the terminal.
@@ -81,7 +86,7 @@ Every role logs in with an ID and a password on the start page.
 |---|---|
 | Director (`Riaditel`) | ID `123`, seeded on first start. Its temporary password comes from `warehouse.riaditel.heslo` (local value in `application-dev.yml`). |
 | Worker (`Pracovnik`) | Created by the director with a temporary password. |
-| Customer (`Zakaznik`) | Registers on the customer tab with an ID, name and password. |
+| Customer (`Zakaznik`) | Registers on the customer tab with an ID, name, e-mail and password. |
 
 Passwords must have 8 to 72 characters and are stored only as BCrypt hashes.
 A temporary password (seeded director, new worker, password reset by the
@@ -90,12 +95,66 @@ to **Zmeniť heslo** and the API answers `403`. Everyone can change their own
 password from the top bar, and the director can set a new temporary password
 for any worker in the workers table.
 
+**Forgotten password (customers):** *Zabudol si heslo?* on the customer tab
+asks for the registration e-mail and sends a one-time link that is valid for
+30 minutes. The answer is the same whether the e-mail exists or not, only a
+hash of the link's token is stored, and at most one e-mail per customer is sent
+every 2 minutes. Links point to `warehouse.verejna-adresa`, never to the
+request's `Host` header.
+
 Goods can be sent only to a registered customer whose ID, first name and last
 name match.
 
 **Upgrading an existing database:** Flyway upgrades the schema on the next
 start. Workers hired before passwords existed cannot log in until the director
-sets a temporary password for them in the workers table.
+sets a temporary password for them in the workers table. Customers registered
+before e-mails existed can still log in but cannot use password recovery.
+
+## 🔒 HTTPS
+
+**Locally** — create a self-signed certificate once (stored in `certs/`, which
+Git ignores), then start with the `https` profile:
+
+```bash
+mkdir certs
+keytool -genkeypair -alias warehouse -keyalg RSA -keysize 2048 -validity 825 -storetype PKCS12 -keystore certs/localhost.p12 -storepass changeit -dname "CN=localhost" -ext "SAN=dns:localhost,ip:127.0.0.1"
+```
+
+```bash
+SPRING_PROFILES_ACTIVE=dev,https ./gradlew bootRun
+```
+
+Open <https://localhost:8443>. The browser warns that the certificate is not
+trusted, because it is self-signed; continue to the site. The session cookie
+is then sent only over HTTPS.
+
+**In production** — run with the `prod` profile behind a reverse proxy that
+terminates TLS (nginx, Traefik, a cloud load balancer). The app trusts the
+proxy's `X-Forwarded-For` and `X-Forwarded-Proto` headers only from internal
+addresses (`TRUSTED_PROXIES`), so login limits and the audit log see the real
+client IP, cookies are `Secure` and responses carry HSTS. Minimal nginx site:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name sklad.example.com;
+    ssl_certificate     /etc/letsencrypt/live/sklad.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/sklad.example.com/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+server {
+    listen 80;
+    server_name sklad.example.com;
+    return 301 https://$host$request_uri;
+}
+```
 
 ## 🔌 REST API
 
@@ -220,7 +279,8 @@ Configuration is split into Spring profiles:
 |---|---|---|
 | `application.yml` | every environment | port, Flyway, `ddl-auto: validate`, error pages without stack traces, session cookie, Actuator, login attempt limits (`warehouse.prihlasenie.*`) |
 | `application-dev.yml` | local development (the default profile) | database from `compose.yaml`, director's temporary password, template cache off |
-| `application-prod.yml` | production (`SPRING_PROFILES_ACTIVE=prod`) | secrets only from environment variables, no defaults |
+| `application-https.yml` | local HTTPS (`SPRING_PROFILES_ACTIVE=dev,https`) | port 8443 with the keystore from `certs/`, `Secure` session cookie |
+| `application-prod.yml` | production behind a reverse proxy (`SPRING_PROFILES_ACTIVE=prod`) | secrets only from environment variables, trusted proxy headers, `Secure` cookie |
 
 Production needs these environment variables; the app refuses to start
 without them:
@@ -231,6 +291,13 @@ without them:
 | `DB_USERNAME` | Database user |
 | `DB_PASSWORD` | Database password |
 | `WAREHOUSE_RIADITEL_HESLO` | Director's temporary password for the first start |
+| `PUBLIC_URL` | Public address used in e-mail links, e.g. `https://sklad.example.com` |
+| `MAIL_HOST`, `MAIL_FROM` | SMTP server and sender address for password recovery e-mails |
+
+Optional: `MAIL_PORT` (587), `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_SMTP_AUTH`
+and `MAIL_STARTTLS` (both `true`), and `TRUSTED_PROXIES` (a regular expression
+of proxy addresses whose `X-Forwarded-*` headers are trusted; private networks
+and localhost by default).
 
 The schema is managed by Flyway (`src/main/resources/db/migration`); Hibernate
 only validates it. Databases created before Flyway are baselined at version 1

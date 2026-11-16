@@ -755,6 +755,11 @@ tbody tr:hover {
     text-align: center;
 }
 
+.form-link {
+    margin: var(--space-4) 0 0;
+    font-size: 14px;
+}
+
 /* Login and simple pages */
 .page-login {
     background:

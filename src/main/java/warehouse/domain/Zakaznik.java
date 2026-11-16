@@ -17,6 +17,9 @@ public class Zakaznik extends Osoba {
     @Column(nullable = false, length = 50)
     private String id;
 
+    @Column(length = 254, unique = true)
+    private String email;
+
     protected Zakaznik() {
     }
 
@@ -25,10 +28,29 @@ public class Zakaznik extends Osoba {
      * @param id id zakaznika
      * @param meno meno zakaznika
      * @param priezvisko priezvisko zakaznika
+     * @param email e-mail na obnovu hesla, ulozi sa malymi pismenami
      */
-    public Zakaznik(String id, String meno, String priezvisko) {
+    public Zakaznik(String id, String meno, String priezvisko, String email) {
         super(meno, priezvisko);
         this.id = id;
+        this.email = normalizujEmail(email);
+    }
+
+    /**
+     * Upravi e-mail do jednotneho tvaru na ukladanie a vyhladavanie.
+     * @param email e-mail alebo null
+     * @return e-mail bez okrajovych medzier a malymi pismenami, alebo null
+     */
+    public static String normalizujEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    /**
+     * Vrati e-mail zakaznika.
+     * @return e-mail alebo null pri ucte z obdobia pred zavedenim e-mailov
+     */
+    public String getEmail() {
+        return this.email;
     }
 
     /**

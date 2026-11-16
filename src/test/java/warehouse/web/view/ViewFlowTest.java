@@ -6,7 +6,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.mockito.ArgumentCaptor;
 import org.springframework.http.MediaType;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -20,7 +24,14 @@ import warehouse.security.Rola;
 import warehouse.service.AuditService;
 import warehouse.service.SkladService;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import static org.hamcrest.Matchers.containsString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -54,13 +65,16 @@ class ViewFlowTest extends AbstractIntegrationTest {
     @Autowired
     private AuditService auditService;
 
+    @MockitoBean
+    private JavaMailSender mailSender;
+
     @Value("${warehouse.riaditel.heslo}")
     private String hesloRiaditela;
 
     @BeforeEach
     void zaregistrujZakaznikov() {
-        this.skladService.registrujZakaznika("10", "Jan", "Novy", HESLO);
-        this.skladService.registrujZakaznika("20", "Peter", "Novak", HESLO);
+        this.skladService.registrujZakaznika("10", "Jan", "Novy", "jan@example.com", HESLO);
+        this.skladService.registrujZakaznika("20", "Peter", "Novak", "peter@example.com", HESLO);
     }
 
     @Test
@@ -172,7 +186,8 @@ class ViewFlowTest extends AbstractIntegrationTest {
     @Test
     void zakaznikSaZaregistrujeAPrihlasi() throws Exception {
         this.mockMvc.perform(post("/registracia").with(csrf())
-                        .param("id", "30").param("meno", "Eva").param("priezvisko", "Mala").param("heslo", HESLO))
+                        .param("id", "30").param("meno", "Eva").param("priezvisko", "Mala")
+                        .param("email", "eva@example.com").param("heslo", HESLO))
                 .andExpect(redirectedUrl("/?rola=zakaznik"))
                 .andExpect(flash().attributeExists("sprava"));
 
@@ -185,7 +200,8 @@ class ViewFlowTest extends AbstractIntegrationTest {
     @Test
     void registraciaSKratkymHeslomZlyha() throws Exception {
         this.mockMvc.perform(post("/registracia").with(csrf())
-                        .param("id", "30").param("meno", "Eva").param("priezvisko", "Mala").param("heslo", "kratke"))
+                        .param("id", "30").param("meno", "Eva").param("priezvisko", "Mala")
+                        .param("email", "eva@example.com").param("heslo", "kratke"))
                 .andExpect(redirectedUrl("/?rola=zakaznik"))
                 .andExpect(flash().attribute("chyba", containsString("Heslo musi mat 8 az 72 znakov.")));
 
@@ -422,8 +438,65 @@ class ViewFlowTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void zakaznikSiObnoviZabudnuteHesloEmailom() throws Exception {
+        this.mockMvc.perform(post("/heslo/zabudnute").with(csrf()).param("email", " JAN@example.com "))
+                .andExpect(redirectedUrl("/?rola=zakaznik"))
+                .andExpect(flash().attribute("sprava", containsString("Ak k e-mailu existuje ucet")));
+
+        ArgumentCaptor<SimpleMailMessage> email = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(this.mailSender).send(email.capture());
+        assertEquals("jan@example.com", email.getValue().getTo()[0]);
+        Matcher odkaz = Pattern.compile("http://localhost:8080/heslo/obnova\\?token=([A-Za-z0-9_-]+)")
+                .matcher(email.getValue().getText());
+        assertTrue(odkaz.find(), "e-mail obsahuje odkaz s tokenom");
+        String token = odkaz.group(1);
+
+        this.mockMvc.perform(get("/heslo/obnova").param("token", token))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Nové heslo")));
+        this.mockMvc.perform(post("/heslo/obnova").with(csrf()).param("token", token)
+                        .param("noveHeslo", NOVE_HESLO).param("noveHesloZnova", NOVE_HESLO))
+                .andExpect(redirectedUrl("/?rola=zakaznik"))
+                .andExpect(flash().attribute("sprava", "Heslo bolo zmenene. Teraz sa mozes prihlasit."));
+
+        this.prihlas(Rola.ZAKAZNIK, "10", NOVE_HESLO);
+        this.mockMvc.perform(get("/heslo/obnova").param("token", token))
+                .andExpect(redirectedUrl("/?rola=zakaznik"))
+                .andExpect(flash().attribute("chyba", "Odkaz na obnovu hesla je neplatny alebo expiroval."));
+        assertEquals("ZAKAZNIK:10", this.auditService.najnovsie(AuditAkcia.OBNOVA_HESLA, 1).get(0).getPouzivatel());
+    }
+
+    @Test
+    void neznamyEmailDostaneRovnakuOdpovedBezEmailu() throws Exception {
+        this.mockMvc.perform(post("/heslo/zabudnute").with(csrf()).param("email", "nikto@example.com"))
+                .andExpect(redirectedUrl("/?rola=zakaznik"))
+                .andExpect(flash().attribute("sprava", containsString("Ak k e-mailu existuje ucet")));
+
+        verify(this.mailSender, never()).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void opakovanaZiadostHnedPoSebeNeposleDalsiEmail() throws Exception {
+        this.mockMvc.perform(post("/heslo/zabudnute").with(csrf()).param("email", "peter@example.com"));
+        this.mockMvc.perform(post("/heslo/zabudnute").with(csrf()).param("email", "peter@example.com"));
+
+        verify(this.mailSender, times(1)).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void vymyslenyTokenSaOdmietne() throws Exception {
+        this.mockMvc.perform(get("/heslo/obnova").param("token", "vymysleny-token"))
+                .andExpect(redirectedUrl("/?rola=zakaznik"))
+                .andExpect(flash().attributeExists("chyba"));
+        this.mockMvc.perform(post("/heslo/obnova").with(csrf()).param("token", "vymysleny-token")
+                        .param("noveHeslo", NOVE_HESLO).param("noveHesloZnova", NOVE_HESLO))
+                .andExpect(redirectedUrl("/?rola=zakaznik"))
+                .andExpect(flash().attribute("chyba", "Odkaz na obnovu hesla je neplatny alebo expiroval."));
+    }
+
+    @Test
     void opakovaneZleHesloDocasneZablokujeUcet() throws Exception {
-        this.skladService.registrujZakaznika("41", "Ivan", "Dlhy", HESLO);
+        this.skladService.registrujZakaznika("41", "Ivan", "Dlhy", "ivan@example.com", HESLO);
         for (int i = 0; i < 5; i++) {
             this.mockMvc.perform(post("/prihlasenie").with(csrf())
                             .param("rola", "ZAKAZNIK").param("id", "41").param("heslo", "zle-heslo-" + i))

@@ -74,8 +74,19 @@ package "warehouse.domain" {
 
   class Zakaznik <<Entity>> {
   -id: String
+  -email: String
   --
   +naInfo(): ZakaznikInfo
+  }
+
+  class ObnovaHesla <<Entity>> {
+  -zakaznikId: String
+  -tokenHash: String
+  -platiDo: Instant
+  -pouzite: boolean
+  --
+  +jePlatna(teraz: Instant): boolean
+  +pouzi(): void
   }
 
   class AuditZaznam <<Entity>> {
@@ -100,6 +111,7 @@ package "warehouse.repository" {
   interface RiaditelRepository
   interface ZakaznikRepository
   interface AuditZaznamRepository
+  interface ObnovaHeslaRepository
 }
 
 package "warehouse.service" {
@@ -155,6 +167,11 @@ package "warehouse.security" {
   +zaznamenajUspech(ucet: String): void
   }
   class OdhlasenieAudit
+  class ObnovaHeslaService {
+  +poziadaj(email: String): void
+  +jePlatny(token: String): boolean
+  +obnov(token: String, noveHeslo: String): void
+  }
   class ZmenaHeslaInterceptor
   class WebConfig
   enum Rola {
@@ -185,11 +202,15 @@ package "warehouse.web.view" {
   class FormularValidator
   class SpolocnyModelAdvice
   class UcetViewController
+  class ObnovaHeslaController
 }
 
 package "warehouse.config" {
   class DataInitializer
   class WarehouseApplication
+  class Udrzba {
+  +vykonaj(): void
+  }
 }
 
 Miestnost <|-- VelkySklad
@@ -225,6 +246,15 @@ AuditZaznam ..> AuditAkcia
 PrihlasenieAuthenticationProvider --> PrihlasenieOchrana
 PrihlasenieAuthenticationProvider --> AuditService
 OdhlasenieAudit --> AuditService
+ObnovaHeslaService --> ZakaznikRepository
+ObnovaHeslaService --> ObnovaHeslaRepository
+ObnovaHeslaService --> HeslaService
+ObnovaHeslaService --> PrihlasenieOchrana
+ObnovaHeslaService --> AuditService
+ObnovaHeslaController --> ObnovaHeslaService
+Udrzba --> AuditService
+Udrzba --> ObnovaHeslaRepository
+Udrzba --> PrihlasenieOchrana
 UcetService --> AuditService
 RiaditelApiController --> AuditService
 RiaditelViewController --> AuditService

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="sk" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: hlavicka('Zabudnuté heslo')}"></head>
+<body class="page-login">
+<a class="skip-link" href="#obsah">Preskočiť na obsah</a>
+<div class="login-head">
+    <span class="brand-mark" aria-hidden="true">WA</span>
+    <h1>Zabudnuté heslo</h1>
+    <p>Zadaj e-mail z registrácie a pošleme ti odkaz na nastavenie nového hesla.</p>
+</div>
+<main id="obsah" class="container container-narrow">
+    <div th:replace="~{fragments/layout :: spravy}"></div>
+    <section class="card">
+        <form method="post" th:action="@{/heslo/zabudnute}">
+            <div class="field">
+                <label for="email">E-mail</label>
+                <input id="email" type="email" name="email" autocomplete="email" maxlength="254" required autofocus>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Poslať odkaz</button>
+        </form>
+        <p class="text-center form-link"><a th:href="@{/(rola='zakaznik')}">Späť na prihlásenie</a></p>
+    </section>
+    <p class="text-center muted">Obnova cez e-mail je pre zákazníkov. Pracovníkom heslo obnoví riaditeľ.</p>
+</main>
+<footer th:replace="~{fragments/layout :: pata}"></footer>
+<script th:replace="~{fragments/layout :: appskript}"></script>
+</body>
+</html>

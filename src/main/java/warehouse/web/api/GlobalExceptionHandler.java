@@ -1,5 +1,7 @@
 package warehouse.web.api;
 
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -13,11 +15,25 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Prevadza vynimky na odpovede vo formate ProblemDetail.
+ * Prevadza vynimky REST rozhrania na odpovede vo formate ProblemDetail. Obrazovky maju vlastne spracovanie.
  * @author Juraj
  */
-@RestControllerAdvice
+@RestControllerAdvice(basePackageClasses = GlobalExceptionHandler.class)
 public class GlobalExceptionHandler {
+    /** Sprava pre sucasne zmeny tych istych udajov. */
+    public static final String SPRAVA_KONFLIKTU = "Udaje sa medzicasom zmenili alebo uz existuju. Skus to znova.";
+
+    /**
+     * Prevedie konflikt pri ukladani (sucasna zmena, porusene obmedzenie databazy) na odpoved 409.
+     * @param vynimka vynimka
+     * @return problemovy detail
+     */
+    @ExceptionHandler({DataIntegrityViolationException.class, OptimisticLockingFailureException.class})
+    public ProblemDetail konflikt(RuntimeException vynimka) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, SPRAVA_KONFLIKTU);
+        problem.setTitle("Konflikt");
+        return problem;
+    }
 
     /**
      * Prevedie neopravneny pristup na odpoved 403.

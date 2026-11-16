@@ -6,8 +6,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.transaction.annotation.Transactional;
 import warehouse.AbstractIntegrationTest;
 import warehouse.domain.Miestnost;
@@ -35,6 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class ViewFlowTest extends AbstractIntegrationTest {
     private static final String HESLO = "testovacie-heslo";
+    private static final String NOVE_HESLO = "nove-vlastne-heslo";
 
     @Autowired
     private MockMvc mockMvc;
@@ -324,11 +327,113 @@ class ViewFlowTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.token").isNotEmpty());
     }
 
-    private MockHttpSession prihlas(Rola rola, String id, String heslo) throws Exception {
+    @Test
+    void docasneHesloVynutiZmenuPredPokracovanim() throws Exception {
         MockHttpSession session = new MockHttpSession();
         this.mockMvc.perform(post("/prihlasenie").with(csrf()).session(session)
+                        .param("rola", "RIADITEL").param("id", "123").param("heslo", this.hesloRiaditela))
+                .andExpect(redirectedUrl("/heslo"));
+
+        this.mockMvc.perform(get("/riaditel").session(session))
+                .andExpect(redirectedUrl("/heslo"));
+        this.mockMvc.perform(get("/api/riaditel/pracovnici").session(session))
+                .andExpect(status().isForbidden());
+        this.mockMvc.perform(get("/heslo").session(session))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("dočasným heslom")));
+
+        this.zmenHeslo(session, this.hesloRiaditela, NOVE_HESLO)
+                .andExpect(redirectedUrl("/riaditel"))
+                .andExpect(flash().attribute("sprava", "Heslo bolo zmenene."));
+        this.mockMvc.perform(get("/riaditel").session(session))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void zmenaHeslaSoZlymSucasnymHeslomZlyha() throws Exception {
+        MockHttpSession session = this.prihlas(Rola.ZAKAZNIK, "10", HESLO);
+
+        this.zmenHeslo(session, "zle-sucasne-heslo", NOVE_HESLO)
+                .andExpect(redirectedUrl("/heslo"))
+                .andExpect(flash().attribute("chyba", "Sucasne heslo nie je spravne."));
+    }
+
+    @Test
+    void zmenaHeslaVyzadujeZhodneNoveHesla() throws Exception {
+        MockHttpSession session = this.prihlas(Rola.ZAKAZNIK, "10", HESLO);
+
+        this.mockMvc.perform(post("/heslo").with(csrf()).session(session)
+                        .param("sucasneHeslo", HESLO).param("noveHeslo", NOVE_HESLO)
+                        .param("noveHesloZnova", "ine-nove-heslo"))
+                .andExpect(redirectedUrl("/heslo"))
+                .andExpect(flash().attribute("chyba", "Nove hesla sa nezhoduju."));
+    }
+
+    @Test
+    void zmeneneHesloPlatiPriDalsomPrihlaseni() throws Exception {
+        MockHttpSession session = this.prihlas(Rola.ZAKAZNIK, "10", HESLO);
+        this.zmenHeslo(session, HESLO, NOVE_HESLO).andExpect(redirectedUrl("/zakaznik"));
+
+        this.mockMvc.perform(post("/prihlasenie").with(csrf())
+                        .param("rola", "ZAKAZNIK").param("id", "10").param("heslo", HESLO))
+                .andExpect(redirectedUrl("/?rola=zakaznik&chyba"));
+        this.prihlas(Rola.ZAKAZNIK, "10", NOVE_HESLO);
+    }
+
+    @Test
+    void riaditelNastaviPracovnikoviNoveDocasneHeslo() throws Exception {
+        this.skladService.prijmiPracovnika("1", "Peter", "Novak", HESLO);
+        MockHttpSession riaditel = this.prihlas(Rola.RIADITEL, "123", this.hesloRiaditela);
+
+        this.mockMvc.perform(post("/riaditel/pracovnici/1/heslo").with(csrf()).session(riaditel)
+                        .param("heslo", "reset-heslo-123"))
+                .andExpect(redirectedUrl("/riaditel"))
+                .andExpect(flash().attributeExists("sprava"));
+
+        MockHttpSession pracovnik = new MockHttpSession();
+        this.mockMvc.perform(post("/prihlasenie").with(csrf()).session(pracovnik)
+                        .param("rola", "PRACOVNIK").param("id", "1").param("heslo", "reset-heslo-123"))
+                .andExpect(redirectedUrl("/heslo"));
+    }
+
+    @Test
+    void apiZmeniHesloPrihlasenehoPouzivatela() throws Exception {
+        MockHttpSession session = this.prihlas(Rola.ZAKAZNIK, "10", HESLO);
+
+        this.mockMvc.perform(post("/api/heslo").with(csrf()).session(session)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"sucasneHeslo\":\"" + HESLO + "\",\"noveHeslo\":\"" + NOVE_HESLO + "\"}"))
+                .andExpect(status().isNoContent());
+
+        this.prihlas(Rola.ZAKAZNIK, "10", NOVE_HESLO);
+    }
+
+    @Test
+    void statusHlasiDostupnuDatabazu() throws Exception {
+        this.mockMvc.perform(get("/api/status"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.database").value("ok"));
+    }
+
+    /**
+     * Prihlasi pouzivatela. Ak ma docasne heslo, rovno si ho zmeni na {@link #NOVE_HESLO}.
+     */
+    private MockHttpSession prihlas(Rola rola, String id, String heslo) throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        String ciel = this.mockMvc.perform(post("/prihlasenie").with(csrf()).session(session)
                         .param("rola", rola.name()).param("id", id).param("heslo", heslo))
-                .andExpect(redirectedUrl(rola.getDomovskaStranka()));
+                .andExpect(status().is3xxRedirection())
+                .andReturn().getResponse().getRedirectedUrl();
+        if ("/heslo".equals(ciel)) {
+            this.zmenHeslo(session, heslo, NOVE_HESLO).andExpect(redirectedUrl(rola.getDomovskaStranka()));
+        } else {
+            assertEquals(rola.getDomovskaStranka(), ciel);
+        }
         return session;
+    }
+
+    private ResultActions zmenHeslo(MockHttpSession session, String sucasne, String nove) throws Exception {
+        return this.mockMvc.perform(post("/heslo").with(csrf()).session(session)
+                .param("sucasneHeslo", sucasne).param("noveHeslo", nove).param("noveHesloZnova", nove));
     }
 }

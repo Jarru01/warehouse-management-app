@@ -21,7 +21,17 @@ final class ApiPrihlasenie {
     }
 
     static RequestPostProcessor bezCsrf(Rola rola, String id) {
-        PrihlasenyPouzivatel pouzivatel = new PrihlasenyPouzivatel(rola, id, "Test", "Pouzivatel");
+        return prihlasenie(rola, id, false);
+    }
+
+    static RequestPostProcessor sDocasnymHeslom(Rola rola, String id) {
+        RequestPostProcessor prihlasenie = prihlasenie(rola, id, true);
+        RequestPostProcessor token = csrf();
+        return request -> token.postProcessRequest(prihlasenie.postProcessRequest(request));
+    }
+
+    private static RequestPostProcessor prihlasenie(Rola rola, String id, boolean zmenaHesla) {
+        PrihlasenyPouzivatel pouzivatel = new PrihlasenyPouzivatel(rola, id, "Test", "Pouzivatel", zmenaHesla);
         return authentication(UsernamePasswordAuthenticationToken.authenticated(pouzivatel, null,
                 List.of(new SimpleGrantedAuthority(rola.getOpravnenie()))));
     }

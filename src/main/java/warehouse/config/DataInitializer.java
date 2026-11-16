@@ -47,7 +47,8 @@ public class DataInitializer implements ApplicationRunner {
 
     /**
      * Vytvori riaditela a predvolene miestnosti, ak v databaze chybaju. Riaditelovi bez hesla
-     * (z databazy pred zavedenim hesiel) nastavi pociatocne heslo z konfiguracie.
+     * (z databazy pred zavedenim hesiel) nastavi pociatocne heslo z konfiguracie, ktore si musi
+     * po prvom prihlaseni zmenit.
      * @param args argumenty spustenia
      */
     @Override
@@ -59,7 +60,7 @@ public class DataInitializer implements ApplicationRunner {
         }
         for (Riaditel riaditel : this.riaditelRepository.findAll()) {
             if (riaditel.getHesloHash() == null) {
-                riaditel.nastavHesloHash(this.passwordEncoder.encode(this.hesloRiaditela));
+                riaditel.nastavHeslo(this.passwordEncoder.encode(this.hesloRiaditela), true);
             }
         }
         if (this.miestnostRepository.count() == 0) {

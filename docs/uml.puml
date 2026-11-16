@@ -104,6 +104,7 @@ package "warehouse.service" {
   +tovarVRegali(regalId: Long): List<Tovar>
   +tovarPreZakaznika(zakaznikId: String): List<Tovar>
   +prijmiPracovnika(id: String, meno: String, priezvisko: String, heslo: String): Pracovnik
+  +resetujHesloPracovnika(id: String, noveHeslo: String): void
   +registrujZakaznika(id: String, meno: String, priezvisko: String, heslo: String): Zakaznik
   +vylucPracovnika(id: String): void
   +pridajRegal(kapacita: int): Regal
@@ -114,6 +115,11 @@ package "warehouse.service" {
   +vytvorTovar(id: String, nazov: String, vaha: int, odosielatel: ZakaznikInfo, prijemca: ZakaznikInfo): Tovar
   +vyzdvihniTovar(tovarId: String, zakaznikId: String): void
   }
+
+  class HeslaService {
+  +zahesuj(heslo: String): String
+  +zhoduje(heslo: String, hash: String): boolean
+  }
 }
 
 package "warehouse.security" {
@@ -121,6 +127,13 @@ package "warehouse.security" {
   class PrihlasenieAuthenticationProvider
   class PrihlasenieDetails
   class PrihlasenyPouzivatel <<record>>
+  class UcetService {
+  +najdi(rola: Rola, id: String): Optional<Osoba>
+  +zmenHeslo(rola: Rola, id: String, sucasne: String, nove: String): void
+  }
+  class AktualnePrihlasenie
+  class ZmenaHeslaInterceptor
+  class WebConfig
   enum Rola {
   RIADITEL
   PRACOVNIK
@@ -135,6 +148,7 @@ package "warehouse.web.api" {
   class MiestnostiApiController
   class StatusController
   class CsrfController
+  class UcetApiController
   class DtoMapper
   class GlobalExceptionHandler
   class ZakazanyPristupException
@@ -147,6 +161,7 @@ package "warehouse.web.view" {
   class ZakaznikViewController
   class FormularValidator
   class SpolocnyModelAdvice
+  class UcetViewController
 }
 
 package "warehouse.config" {
@@ -180,10 +195,19 @@ SkladService ..> NeplatnaOperaciaException
 
 SecurityConfig ..> PrihlasenieDetails
 SecurityConfig ..> PrihlasenyPouzivatel
-PrihlasenieAuthenticationProvider --> RiaditelRepository
-PrihlasenieAuthenticationProvider --> PracovnikRepository
-PrihlasenieAuthenticationProvider --> ZakaznikRepository
+SkladService --> HeslaService
+PrihlasenieAuthenticationProvider --> UcetService
+PrihlasenieAuthenticationProvider --> HeslaService
 PrihlasenieAuthenticationProvider ..> PrihlasenyPouzivatel
+UcetService --> RiaditelRepository
+UcetService --> PracovnikRepository
+UcetService --> ZakaznikRepository
+UcetService --> HeslaService
+WebConfig --> ZmenaHeslaInterceptor
+UcetViewController --> UcetService
+UcetViewController --> AktualnePrihlasenie
+UcetApiController --> UcetService
+UcetApiController --> AktualnePrihlasenie
 PrihlasenyPouzivatel --> Rola
 
 RiaditelApiController --> SkladService

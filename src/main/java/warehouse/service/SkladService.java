@@ -1,7 +1,6 @@
 package warehouse.service;
 
 import org.springframework.data.domain.Sort;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import warehouse.domain.Miestnost;
@@ -21,7 +20,6 @@ import warehouse.repository.RiaditelRepository;
 import warehouse.repository.TovarRepository;
 import warehouse.repository.ZakaznikRepository;
 
-import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -32,40 +30,35 @@ import java.util.Set;
  */
 @Service
 public class SkladService {
-    /** Najmensia dlzka hesla v znakoch. */
-    public static final int MIN_DLZKA_HESLA = 8;
-    /** Najvacsia dlzka hesla v bajtoch UTF-8, viac BCrypt nespracuje. */
-    public static final int MAX_BAJTOV_HESLA = 72;
-
     private final MiestnostRepository miestnostRepository;
     private final RegalRepository regalRepository;
     private final TovarRepository tovarRepository;
     private final PracovnikRepository pracovnikRepository;
     private final RiaditelRepository riaditelRepository;
     private final ZakaznikRepository zakaznikRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final HeslaService heslaService;
 
     /**
-     * Vytvori servis s potrebnymi repozitarmi a kodovacom hesiel.
+     * Vytvori servis s potrebnymi repozitarmi a servisom hesiel.
      * @param miestnostRepository repozitar miestnosti
      * @param regalRepository repozitar regalov
      * @param tovarRepository repozitar tovaru
      * @param pracovnikRepository repozitar pracovnikov
      * @param riaditelRepository repozitar riaditelov
      * @param zakaznikRepository repozitar zakaznikov
-     * @param passwordEncoder kodovac hesiel
+     * @param heslaService servis hesiel
      */
     public SkladService(MiestnostRepository miestnostRepository, RegalRepository regalRepository,
                         TovarRepository tovarRepository, PracovnikRepository pracovnikRepository,
                         RiaditelRepository riaditelRepository, ZakaznikRepository zakaznikRepository,
-                        PasswordEncoder passwordEncoder) {
+                        HeslaService heslaService) {
         this.miestnostRepository = miestnostRepository;
         this.regalRepository = regalRepository;
         this.tovarRepository = tovarRepository;
         this.pracovnikRepository = pracovnikRepository;
         this.riaditelRepository = riaditelRepository;
         this.zakaznikRepository = zakaznikRepository;
-        this.passwordEncoder = passwordEncoder;
+        this.heslaService = heslaService;
     }
 
     /**
@@ -176,7 +169,7 @@ public class SkladService {
      * @param id id pracovnika
      * @param meno meno pracovnika
      * @param priezvisko priezvisko pracovnika
-     * @param heslo heslo pracovnika, ulozi sa iba jeho hash
+     * @param heslo docasne heslo pracovnika, ulozi sa iba jeho hash a pracovnik si ho musi zmenit
      * @return prijaty pracovnik
      */
     @Transactional
@@ -185,7 +178,7 @@ public class SkladService {
             throw new NeplatnaOperaciaException("Pracovnik so zadanym ID uz existuje.");
         }
         Pracovnik pracovnik = new Pracovnik(id, meno, priezvisko);
-        pracovnik.nastavHesloHash(this.zahesuj(heslo));
+        pracovnik.nastavHeslo(this.heslaService.zahesuj(heslo), true);
         pracovnik.premiestniDo(this.miestnost(Miestnost.SKLAD_TOVARU));
         return this.pracovnikRepository.save(pracovnik);
     }
@@ -204,8 +197,19 @@ public class SkladService {
             throw new NeplatnaOperaciaException("Zakaznik so zadanym ID uz existuje.");
         }
         Zakaznik zakaznik = new Zakaznik(id, meno, priezvisko);
-        zakaznik.nastavHesloHash(this.zahesuj(heslo));
+        zakaznik.nastavHeslo(this.heslaService.zahesuj(heslo), false);
         return this.zakaznikRepository.save(zakaznik);
+    }
+
+    /**
+     * Riaditel nastavi pracovnikovi nove docasne heslo, ktore si pracovnik musi pri prihlaseni zmenit.
+     * @param id id pracovnika
+     * @param noveHeslo nove docasne heslo
+     */
+    @Transactional
+    public void resetujHesloPracovnika(String id, String noveHeslo) {
+        Pracovnik pracovnik = this.pracovnik(id);
+        pracovnik.nastavHeslo(this.heslaService.zahesuj(noveHeslo), true);
     }
 
     /**
@@ -347,16 +351,6 @@ public class SkladService {
             throw new NeplatnaOperaciaException("Tovar nepatri zadanemu zakaznikovi.");
         }
         this.tovarRepository.delete(tovar);
-    }
-
-    private String zahesuj(String heslo) {
-        if (heslo == null || heslo.length() < MIN_DLZKA_HESLA) {
-            throw new NeplatnaOperaciaException("Heslo musi mat aspon " + MIN_DLZKA_HESLA + " znakov.");
-        }
-        if (heslo.getBytes(StandardCharsets.UTF_8).length > MAX_BAJTOV_HESLA) {
-            throw new NeplatnaOperaciaException("Heslo je prilis dlhe.");
-        }
-        return this.passwordEncoder.encode(heslo);
     }
 
     private Regal regal(Long regalId) {

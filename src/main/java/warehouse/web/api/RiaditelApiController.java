@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import warehouse.domain.Regal;
 import warehouse.service.SkladService;
+import warehouse.web.api.dto.NoveHesloRequest;
 import warehouse.web.api.dto.PracovnikResponse;
 import warehouse.web.api.dto.PridatRegalRequest;
 import warehouse.web.api.dto.PrijmoutPracovnikaRequest;
@@ -80,6 +81,17 @@ public class RiaditelApiController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void vylucPracovnika(@PathVariable String id) {
         this.skladService.vylucPracovnika(id);
+    }
+
+    /**
+     * Nastavi pracovnikovi nove docasne heslo, ktore si musi pri prihlaseni zmenit.
+     * @param id id pracovnika
+     * @param request nove docasne heslo
+     */
+    @PostMapping("/pracovnici/{id}/heslo")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resetujHeslo(@PathVariable String id, @Valid @RequestBody NoveHesloRequest request) {
+        this.skladService.resetujHesloPracovnika(id, request.heslo());
     }
 
     /**

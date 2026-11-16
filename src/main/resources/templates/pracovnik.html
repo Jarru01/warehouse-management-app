@@ -5,58 +5,77 @@
 <a class="skip-link" href="#obsah">Preskočiť na obsah</a>
 <header th:replace="~{fragments/layout :: topbar('Pracovník')}"></header>
 <main id="obsah" class="container">
-    <h1 class="visually-hidden">Panel pracovníka</h1>
+    <div class="page-head">
+        <div>
+            <span class="eyebrow">Panel pracovníka</span>
+            <h1 th:text="'Ahoj, ' + ${pracovnik.meno}">Ahoj</h1>
+            <p>Presúvaj sa medzi miestnosťami a premiestňuj tovar.</p>
+        </div>
+    </div>
     <div th:replace="~{fragments/layout :: spravy}"></div>
 
-    <section class="card">
-        <div class="card-head">
-            <h2>Moja poloha</h2>
-            <span class="badge" th:text="${pracovnik.miestnost}">-</span>
-        </div>
-        <form method="post" th:action="@{/pracovnik/presun}">
-            <div class="field">
-                <label for="miestnost">Presunúť do miestnosti</label>
-                <select id="miestnost" name="miestnost">
-                    <option th:each="miestnost : ${miestnosti}" th:value="${miestnost.kluc}"
-                            th:text="${miestnost.kluc}"></option>
-                </select>
+    <div class="grid-2 section-gap">
+        <section class="card">
+            <div class="card-head">
+                <h2>Moja poloha</h2>
+                <span class="badge badge-blue" th:text="${pracovnik.miestnost}">-</span>
             </div>
-            <button type="submit" class="btn btn-primary">Presunúť</button>
-        </form>
-    </section>
-
-    <section class="card">
-        <div class="card-head"><h2>Držaný tovar</h2></div>
-        <div th:if="${drzanyTovar != null}">
-            <p>
-                <span class="badge num" th:text="'ID ' + ${drzanyTovar.id}"></span>
-                <span th:text="${drzanyTovar.nazov}"></span>
-            </p>
-            <form method="post" th:action="@{/pracovnik/uloz}">
-                <button type="submit" class="btn btn-primary">Uložiť do regálu</button>
+            <form method="post" th:action="@{/pracovnik/presun}">
+                <div class="field">
+                    <label for="miestnost">Presunúť do miestnosti</label>
+                    <select id="miestnost" name="miestnost">
+                        <option th:each="miestnost : ${miestnosti}" th:value="${miestnost.kluc}"
+                                th:text="${miestnost.kluc}"
+                                th:selected="${miestnost.kluc == pracovnik.miestnost}"></option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Presunúť</button>
             </form>
-        </div>
-        <p class="empty-state" th:if="${drzanyTovar == null}">Nič nedržíš.</p>
-    </section>
+        </section>
+
+        <section class="card">
+            <div class="card-head"><h2>Držaný tovar</h2></div>
+            <div th:if="${drzanyTovar != null}">
+                <p>
+                    <span class="badge badge-gold num" th:text="'ID ' + ${drzanyTovar.id}"></span>
+                    <strong th:text="${drzanyTovar.nazov}"></strong>
+                    <span class="muted num" th:text="'· ' + ${drzanyTovar.vaha} + ' g'"></span>
+                </p>
+                <form method="post" th:action="@{/pracovnik/uloz}">
+                    <button type="submit" class="btn btn-gold">Uložiť do voľného slotu</button>
+                </form>
+            </div>
+            <p class="empty-state" th:if="${drzanyTovar == null}">Momentálne nič nedržíš.</p>
+        </section>
+    </div>
 
     <section class="card">
-        <div class="card-head"><h2>Regále v miestnosti</h2></div>
-        <p class="empty-state" th:if="${regale.isEmpty()}">V miestnosti nie sú regále.</p>
-        <div class="rack" th:each="regal : ${regale}">
-            <h3 th:text="'Regál #' + ${regal.id} + ' · kapacita ' + ${regal.kapacita}"></h3>
-            <ul>
-                <li th:each="tovar : ${regal.tovar}">
-                    <span>
-                        <span class="badge num" th:text="'#' + ${tovar.slot}"></span>
-                        <span th:text="${tovar.id} + ' · ' + ${tovar.nazov}"></span>
-                    </span>
-                    <form method="post" th:action="@{/pracovnik/zober}">
-                        <input type="hidden" name="tovarId" th:value="${tovar.id}">
-                        <button type="submit" class="btn btn-ghost btn-sm">Zobrať</button>
-                    </form>
-                </li>
-                <li th:if="${regal.tovar.isEmpty()}"><span class="empty-state">Prázdny regál</span></li>
-            </ul>
+        <div class="card-head"><h2>Regály v miestnosti</h2></div>
+        <p class="empty-state" th:if="${regale.isEmpty()}">V miestnosti nie sú regály.</p>
+        <div class="rack-grid">
+            <div class="rack" th:each="regal : ${regale}" th:with="obsadene=${regal.tovar.size()}">
+                <div class="rack-head">
+                    <h3 th:text="'Regál #' + ${regal.id}"></h3>
+                </div>
+                <div class="meter" th:classappend="${obsadene >= regal.kapacita} ? 'meter-full'"
+                     role="img" th:attr="aria-label=${obsadene + ' z ' + regal.kapacita + ' slotov obsadených'}">
+                    <span th:style="'width:' + ${obsadene * 100 / regal.kapacita} + '%'"></span>
+                </div>
+                <div class="meter-label num" th:text="${obsadene} + ' / ' + ${regal.kapacita} + ' slotov obsadených'"></div>
+                <ul>
+                    <li th:each="tovar : ${regal.tovar}">
+                        <span>
+                            <span class="slot num" th:text="${tovar.slot}"></span>
+                            <span th:text="${tovar.id} + ' · ' + ${tovar.nazov}"></span>
+                        </span>
+                        <form method="post" th:action="@{/pracovnik/zober}">
+                            <input type="hidden" name="tovarId" th:value="${tovar.id}">
+                            <button type="submit" class="btn btn-ghost btn-sm">Zobrať</button>
+                        </form>
+                    </li>
+                    <li th:if="${regal.tovar.isEmpty()}"><span class="empty-state">Prázdny regál</span></li>
+                </ul>
+            </div>
         </div>
     </section>
 </main>

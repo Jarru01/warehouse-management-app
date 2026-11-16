@@ -16,6 +16,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.context.DelegatingSecurityContextRepository;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.security.web.util.matcher.AnyRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
@@ -31,6 +35,9 @@ import java.nio.charset.StandardCharsets;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+    /** Stranka na zmenu hesla. */
+    public static final String ZMENA_HESLA = "/heslo";
+
     private static final RequestMatcher API = request ->
             request.getRequestURI().startsWith(request.getContextPath() + "/api/");
 
@@ -44,14 +51,28 @@ public class SecurityConfig {
     }
 
     /**
+     * Uloziste bezpecnostneho kontextu v session. Je to bean, aby sa dal kontext po zmene hesla ulozit znova.
+     * @return uloziste bezpecnostneho kontextu
+     */
+    @Bean
+    public SecurityContextRepository securityContextRepository() {
+        return new DelegatingSecurityContextRepository(new RequestAttributeSecurityContextRepository(),
+                new HttpSessionSecurityContextRepository());
+    }
+
+    /**
      * Retazec bezpecnostnych filtrov aplikacie.
      * @param http konfigurator HTTP bezpecnosti
+     * @param securityContextRepository uloziste bezpecnostneho kontextu
      * @return retazec filtrov
      * @throws Exception chyba konfiguracie
      */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                                   SecurityContextRepository securityContextRepository)
+            throws Exception {
         http
+                .securityContext(kontext -> kontext.securityContextRepository(securityContextRepository))
                 .authorizeHttpRequests(pristup -> pristup
                         .requestMatchers("/", "/registracia", "/style.css", "/app.js", "/error",
                                 "/api/status", "/api/csrf").permitAll()
@@ -109,7 +130,8 @@ public class SecurityConfig {
     private static void poPrihlaseni(HttpServletRequest request, HttpServletResponse response,
                                      Authentication prihlasenie) throws IOException {
         PrihlasenyPouzivatel pouzivatel = (PrihlasenyPouzivatel) prihlasenie.getPrincipal();
-        response.sendRedirect(request.getContextPath() + pouzivatel.rola().getDomovskaStranka());
+        String ciel = pouzivatel.zmenaHesla() ? ZMENA_HESLA : pouzivatel.rola().getDomovskaStranka();
+        response.sendRedirect(request.getContextPath() + ciel);
     }
 
     private static void poNeuspesnomPrihlaseni(HttpServletRequest request, HttpServletResponse response,

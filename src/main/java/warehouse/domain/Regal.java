@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 /**
  * Regal s pevnou kapacitou, ktory patri do miestnosti.
@@ -28,6 +29,9 @@ public class Regal {
 
     @Column(nullable = false)
     private int kapacita;
+
+    @Version
+    private Long verzia;
 
     protected Regal() {
     }

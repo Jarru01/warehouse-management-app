@@ -8,9 +8,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import warehouse.domain.Osoba;
-import warehouse.repository.PracovnikRepository;
-import warehouse.repository.RiaditelRepository;
-import warehouse.repository.ZakaznikRepository;
+import warehouse.service.HeslaService;
 
 import java.util.List;
 import java.util.Optional;
@@ -23,27 +21,20 @@ import java.util.Optional;
 public class PrihlasenieAuthenticationProvider implements AuthenticationProvider {
     private static final String NESPRAVNE_UDAJE = "Nespravne ID alebo heslo.";
 
-    private final RiaditelRepository riaditelRepository;
-    private final PracovnikRepository pracovnikRepository;
-    private final ZakaznikRepository zakaznikRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final UcetService ucetService;
+    private final HeslaService heslaService;
     private final String nahradnyHash;
 
     /**
-     * Vytvori overovac s repozitarmi pouzivatelov a kodovacom hesiel.
-     * @param riaditelRepository repozitar riaditelov
-     * @param pracovnikRepository repozitar pracovnikov
-     * @param zakaznikRepository repozitar zakaznikov
-     * @param passwordEncoder kodovac hesiel
+     * Vytvori overovac so servisom uctov a hesiel.
+     * @param ucetService servis uctov
+     * @param heslaService servis hesiel
+     * @param passwordEncoder kodovac hesiel pre nahradny hash
      */
-    public PrihlasenieAuthenticationProvider(RiaditelRepository riaditelRepository,
-                                             PracovnikRepository pracovnikRepository,
-                                             ZakaznikRepository zakaznikRepository,
+    public PrihlasenieAuthenticationProvider(UcetService ucetService, HeslaService heslaService,
                                              PasswordEncoder passwordEncoder) {
-        this.riaditelRepository = riaditelRepository;
-        this.pracovnikRepository = pracovnikRepository;
-        this.zakaznikRepository = zakaznikRepository;
-        this.passwordEncoder = passwordEncoder;
+        this.ucetService = ucetService;
+        this.heslaService = heslaService;
         this.nahradnyHash = passwordEncoder.encode("nahradne-heslo-pre-neznameho-pouzivatela");
     }
 
@@ -60,15 +51,16 @@ public class PrihlasenieAuthenticationProvider implements AuthenticationProvider
         Optional<Rola> rola = authentication.getDetails() instanceof PrihlasenieDetails details
                 ? Rola.podlaNazvu(details.getRola())
                 : Optional.empty();
-        Optional<Osoba> osoba = rola.flatMap(r -> this.najdi(r, id));
+        Optional<Osoba> osoba = rola.flatMap(r -> this.ucetService.najdi(r, id));
         String hash = osoba.map(Osoba::getHesloHash).orElse(null);
 
-        boolean zhoda = this.porovnaj(heslo, hash == null ? this.nahradnyHash : hash);
+        boolean zhoda = this.heslaService.zhoduje(heslo, hash == null ? this.nahradnyHash : hash);
         if (osoba.isEmpty() || hash == null || !zhoda) {
             throw new BadCredentialsException(NESPRAVNE_UDAJE);
         }
+        Osoba prihlasena = osoba.get();
         PrihlasenyPouzivatel pouzivatel = new PrihlasenyPouzivatel(rola.get(), id,
-                osoba.get().getMeno(), osoba.get().getPriezvisko());
+                prihlasena.getMeno(), prihlasena.getPriezvisko(), prihlasena.isZmenaHesla());
         return UsernamePasswordAuthenticationToken.authenticated(pouzivatel, null,
                 List.of(new SimpleGrantedAuthority(rola.get().getOpravnenie())));
     }
@@ -81,24 +73,5 @@ public class PrihlasenieAuthenticationProvider implements AuthenticationProvider
     @Override
     public boolean supports(Class<?> authentication) {
         return UsernamePasswordAuthenticationToken.class.isAssignableFrom(authentication);
-    }
-
-    private Optional<Osoba> najdi(Rola rola, String id) {
-        if (id == null || id.isBlank()) {
-            return Optional.empty();
-        }
-        return switch (rola) {
-            case RIADITEL -> this.riaditelRepository.findById(id).map(Osoba.class::cast);
-            case PRACOVNIK -> this.pracovnikRepository.findById(id).map(Osoba.class::cast);
-            case ZAKAZNIK -> this.zakaznikRepository.findById(id).map(Osoba.class::cast);
-        };
-    }
-
-    private boolean porovnaj(String heslo, String hash) {
-        try {
-            return this.passwordEncoder.matches(heslo, hash);
-        } catch (IllegalArgumentException e) {
-            return false;
-        }
     }
 }

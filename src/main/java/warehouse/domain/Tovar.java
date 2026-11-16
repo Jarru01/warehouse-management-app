@@ -11,6 +11,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Version;
 
 /**
  * Tovar ulozeny v regali alebo drzany pracovnikom.
@@ -52,6 +53,9 @@ public class Tovar {
 
     @Column(name = "slot")
     private Integer slot;
+
+    @Version
+    private Long verzia;
 
     protected Tovar() {
     }

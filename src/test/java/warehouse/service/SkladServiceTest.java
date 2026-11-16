@@ -50,6 +50,22 @@ class SkladServiceTest extends AbstractIntegrationTest {
 
         assertNotEquals(HESLO, pracovnik.getHesloHash());
         assertTrue(this.passwordEncoder.matches(HESLO, pracovnik.getHesloHash()));
+        assertTrue(pracovnik.isZmenaHesla(), "heslo od riaditela je docasne");
+        assertFalse(this.skladService.zakaznik("10").isZmenaHesla(), "zakaznik si heslo zvolil sam");
+    }
+
+    @Test
+    void resetHeslaNastaviNoveDocasneHeslo() {
+        this.skladService.prijmiPracovnika("1", "Peter", "Novak", HESLO);
+
+        this.skladService.resetujHesloPracovnika("1", "nove-docasne-heslo");
+
+        Pracovnik pracovnik = this.skladService.pracovnik("1");
+        assertTrue(this.passwordEncoder.matches("nove-docasne-heslo", pracovnik.getHesloHash()));
+        assertFalse(this.passwordEncoder.matches(HESLO, pracovnik.getHesloHash()));
+        assertTrue(pracovnik.isZmenaHesla());
+        assertThrows(NenajdenaEntitaException.class,
+                () -> this.skladService.resetujHesloPracovnika("99", "nove-docasne-heslo"));
     }
 
     @Test

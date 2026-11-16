@@ -14,7 +14,8 @@ manages racks, the **worker** moves between rooms and handles goods, and the
 - **Role-based areas** — director, worker and customer areas; pages and REST API check the role, and workers and customers can act only on their own ID.
 - **REST API** — versionless JSON endpoints under `/api` with request DTOs, Bean Validation and RFC 9457 `ProblemDetail` errors.
 - **Warehouse rules** — racks with fixed capacity and numbered slots, hands-full workers, room-bound picking, recipient-checked pickup, safe dismissal of workers holding goods, and protected single racks in the receiving and dispatch rooms.
-- **PostgreSQL persistence** — Spring Data JPA entities and repositories, seeded with a director and three rooms on first start.
+- **PostgreSQL persistence** — Spring Data JPA entities with optimistic locking, Flyway schema migrations, seeded with a director and three rooms on first start.
+- **Clear errors** — conflicting simultaneous changes return `409` (API) or a message on the page instead of a crash; friendly error pages without stack traces.
 - **Tests** — domain services, repositories and both web layers covered by integration tests running against a real PostgreSQL via Testcontainers.
 
 ## 🧱 Tech Stack
@@ -24,7 +25,7 @@ manages racks, the **worker** moves between rooms and handles goods, and the
 | Runtime | Java 21 |
 | Framework | Spring Boot 4.1 (Spring MVC, Spring Data JPA, Spring Security 7) |
 | View layer | Thymeleaf |
-| Database | PostgreSQL 17 |
+| Database | PostgreSQL 17, Flyway migrations |
 | Build | Gradle 9 (wrapper included) |
 | Tests | JUnit 5, MockMvc, Testcontainers |
 
@@ -75,17 +76,23 @@ Every role logs in with an ID and a password on the start page.
 
 | Role | Account |
 |---|---|
-| Director (`Riaditel`) | ID `123`, seeded on first start. Its initial password comes from `warehouse.riaditel.heslo` (local value in `application.yml`). |
-| Worker (`Pracovnik`) | Created by the director, who sets the initial password. |
+| Director (`Riaditel`) | ID `123`, seeded on first start. Its temporary password comes from `warehouse.riaditel.heslo` (local value in `application-dev.yml`). |
+| Worker (`Pracovnik`) | Created by the director with a temporary password. |
 | Customer (`Zakaznik`) | Registers on the customer tab with an ID, name and password. |
 
 Passwords must have 8 to 72 characters and are stored only as BCrypt hashes.
+A temporary password (seeded director, new worker, password reset by the
+director) must be changed right after logging in; until then every page leads
+to **Zmeniť heslo** and the API answers `403`. Everyone can change their own
+password from the top bar, and the director can set a new temporary password
+for any worker in the workers table.
+
 Goods can be sent only to a registered customer whose ID, first name and last
 name match.
 
-**Upgrading an existing database:** the director gets the configured password
-on the next start. Workers hired before passwords existed cannot log in; the
-director dismisses and re-hires them with a password.
+**Upgrading an existing database:** Flyway upgrades the schema on the next
+start. Workers hired before passwords existed cannot log in until the director
+sets a temporary password for them in the workers table.
 
 ## 🔌 REST API
 
@@ -93,12 +100,14 @@ director dismisses and re-hires them with a password.
 |---|---|---|
 | GET | `/api/status` | Application and database status |
 | GET | `/api/csrf` | CSRF token for the current session |
+| POST | `/api/heslo` | Change your own password (`sucasneHeslo`, `noveHeslo`) |
 | GET | `/api/miestnosti` | List rooms |
 | GET | `/api/miestnosti/{kluc}/regale` | Racks and their items in a room |
 | GET | `/api/riaditel/{id}` | Director profile |
 | GET | `/api/riaditel/pracovnici` | List workers |
 | POST | `/api/riaditel/pracovnici` | Hire a worker (`id`, `meno`, `priezvisko`, `heslo`) |
 | DELETE | `/api/riaditel/pracovnici/{id}` | Dismiss a worker |
+| POST | `/api/riaditel/pracovnici/{id}/heslo` | Set a new temporary password for a worker (`heslo`) |
 | POST | `/api/riaditel/regale` | Add a rack to the main warehouse (`kapacita`) |
 | DELETE | `/api/riaditel/regale/{id}` | Remove an empty rack |
 | GET | `/api/pracovnik/{id}` | Worker state (room, held item) |
@@ -117,6 +126,7 @@ because login rotates the session. Access rules:
 | Path | Allowed |
 |---|---|
 | `/api/status`, `/api/csrf` | everyone |
+| `/api/heslo` | any logged-in user |
 | `/api/riaditel/**` | director |
 | `/api/pracovnik/{id}/**` | the worker whose ID is `{id}` |
 | `/api/zakaznik/tovar` | a customer, and only as the sender (`odosielatel.id`) |
@@ -140,6 +150,7 @@ curl -s -c cookies.txt -b cookies.txt -o /dev/null \
   http://localhost:8080/prihlasenie
 
 # 3. New token for the logged-in session, then call the API
+#    (a temporary password must first be changed with POST /api/heslo)
 TOKEN=$(curl -s -c cookies.txt -b cookies.txt http://localhost:8080/api/csrf | jq -r .token)
 curl -b cookies.txt -X POST http://localhost:8080/api/riaditel/pracovnici \
   -H "Content-Type: application/json" -H "X-CSRF-TOKEN: $TOKEN" \
@@ -176,6 +187,7 @@ starts its own disposable PostgreSQL instance.
 - **`Connection refused` or `"database":"chyba"` from `/api/status`** — Docker Desktop is not running or the container is not up yet. Start Docker Desktop, then run `docker compose up -d`.
 - **Container reported as `starting` or `unhealthy`** — first start takes a few seconds; check `docker compose logs db` if it persists.
 - **Port 8080 already in use** — another process or an older app instance is using it. Stop it or change `server.port` in `src/main/resources/application.yml`.
+- **`Schema-validation` or Flyway error on start** — the database schema does not match the migrations, typically an old database created before passwords existed. Reset it with `docker compose down -v`.
 - **Port 5432 already in use** — a locally installed PostgreSQL is running. Stop it or change the published port in `compose.yaml`.
 - **Stale or broken data** — reset with `docker compose down -v` followed by `docker compose up -d`.
 - **`./gradlew` not recognized on Windows** — use `.\gradlew.bat`.
@@ -184,25 +196,38 @@ starts its own disposable PostgreSQL instance.
 
 | Package | Responsibility |
 |---|---|
-| `warehouse.domain` | JPA entities with the warehouse model (`Miestnost`/`VelkySklad`/`MalySklad`, `Regal`, `Tovar`, `Pracovnik`, `Riaditel`, `ZakaznikInfo`) |
+| `warehouse.domain` | JPA entities with the warehouse model (`Miestnost`/`VelkySklad`/`MalySklad`, `Regal`, `Tovar`, `Pracovnik`, `Riaditel`, `Zakaznik`, `ZakaznikInfo`), with optimistic locking |
 | `warehouse.repository` | Spring Data JPA repositories with fetch-join queries for read models |
-| `warehouse.service` | `SkladService` — all transactional operations and business rules |
+| `warehouse.service` | `SkladService` — transactional operations and business rules; `HeslaService` — password rules and hashing |
 | `warehouse.web.api` | REST controllers, DTOs, mapper and the `ProblemDetail` exception handler |
-| `warehouse.web.view` | Thymeleaf controllers, customer registration and form validation (same DTO rules as the API) |
-| `warehouse.security` | Spring Security configuration, login by role, ID and password, access rules |
+| `warehouse.web.view` | Thymeleaf controllers, registration, password change and form validation (same DTO rules as the API) |
+| `warehouse.security` | Spring Security configuration, login by role, ID and password, accounts, forced change of temporary passwords |
+| `src/main/resources/db/migration` | Flyway migrations (`V1__…`, `V2__…`) |
 | `warehouse.config` | Seed data (`DataInitializer`) |
 
 The class diagram is in [`docs/uml.puml`](docs/uml.puml).
 
 ## ⚙️ Configuration
 
-`src/main/resources/application.yml` holds the datasource (default
-`jdbc:postgresql://localhost:5432/sklad`, user and password `warehouse`),
-Hibernate schema handling (`ddl-auto: update`), the server port (`8080`) and
-the director's initial password (`warehouse.riaditel.heslo`). Every property
-can be overridden with environment variables, for example
-`SPRING_DATASOURCE_URL`, `SERVER_PORT` or `WAREHOUSE_RIADITEL_HESLO`.
+Configuration is split into Spring profiles:
 
-Development credentials are placeholders for local use; do not reuse them in
-other environments. The director's initial password is applied only while the
-director has none. Database migrations (Flyway) are a future step.
+| File | Used for | Contents |
+|---|---|---|
+| `application.yml` | every environment | port, Flyway, `ddl-auto: validate`, error pages without stack traces |
+| `application-dev.yml` | local development (the default profile) | database from `compose.yaml`, director's temporary password, template cache off |
+| `application-prod.yml` | production (`SPRING_PROFILES_ACTIVE=prod`) | secrets only from environment variables, no defaults |
+
+Production needs these environment variables; the app refuses to start
+without them:
+
+| Variable | Meaning |
+|---|---|
+| `DB_URL` | JDBC URL, e.g. `jdbc:postgresql://db-host:5432/sklad` |
+| `DB_USERNAME` | Database user |
+| `DB_PASSWORD` | Database password |
+| `WAREHOUSE_RIADITEL_HESLO` | Director's temporary password for the first start |
+
+The schema is managed by Flyway (`src/main/resources/db/migration`); Hibernate
+only validates it. Databases created before Flyway are baselined at version 1
+automatically. Change the schema only through a new `V<n>__description.sql`
+file. The dev credentials are placeholders for local use; never reuse them.

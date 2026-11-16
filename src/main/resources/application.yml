@@ -1,22 +1,26 @@
+# Settings shared by every environment. Secrets live only in the profile files
+# (dev) or in environment variables (prod). Without an active profile the app
+# starts with the "dev" profile.
 spring:
   application:
     name: warehouse-management-app
+  profiles:
+    default: dev
   datasource:
-    url: jdbc:postgresql://localhost:5432/sklad
-    username: warehouse
-    password: warehouse
+    hikari:
+      connection-timeout: 5000
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     open-in-view: false
-  thymeleaf:
-    cache: false
+  flyway:
+    # Databases created by Hibernate before Flyway was added already contain
+    # the V1 schema; Flyway marks them as version 1 and applies the rest.
+    baseline-on-migrate: true
+    baseline-version: 1
 
 server:
   port: 8080
-
-warehouse:
-  riaditel:
-    # Initial password of the seeded director, set only while the director has no password.
-    # Local development value; override with WAREHOUSE_RIADITEL_HESLO everywhere else.
-    heslo: riaditel-dev-heslo
+  error:
+    include-stacktrace: never
+    include-message: never

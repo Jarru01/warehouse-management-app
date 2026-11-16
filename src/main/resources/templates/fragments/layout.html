@@ -3,8 +3,8 @@
 <head th:fragment="hlavicka(titul)">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#0b1220">
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231d4ed8'/%3E%3Ctext x='16' y='21' font-family='Arial' font-size='12' font-weight='bold' fill='white' text-anchor='middle'%3EWA%3C/text%3E%3C/svg%3E">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231e3a8a'/%3E%3Crect y='28' width='32' height='4' fill='%23c9a227'/%3E%3Ctext x='16' y='20' font-family='Arial' font-size='12' font-weight='bold' fill='%23e6c96f' text-anchor='middle'%3EWA%3C/text%3E%3C/svg%3E">
     <title th:text="${titul} + ' · Warehouse App'">Warehouse App</title>
     <link rel="stylesheet" th:href="@{/style.css}">
 </head>
@@ -16,9 +16,10 @@
         <span>Warehouse App</span>
     </a>
     <div class="topbar-meta">
-        <span class="badge" th:if="${sekcia}" th:text="${sekcia}">Rola</span>
+        <span class="badge badge-gold" th:if="${sekcia}" th:text="${sekcia}">Rola</span>
         <span class="topbar-user" th:if="${pouzivatel}"
               th:text="${pouzivatel.meno} + ' ' + ${pouzivatel.priezvisko}">Meno</span>
+        <a class="topbar-link" th:if="${pouzivatel}" th:href="@{/heslo}">Zmeniť heslo</a>
         <form class="inline" method="post" th:action="@{/odhlasenie}" th:if="${pouzivatel}">
             <button type="submit" class="btn btn-ghost btn-sm">Prepnúť používateľa</button>
         </form>
@@ -37,7 +38,7 @@
 </div>
 
 <footer th:fragment="pata" class="footer">
-    <span>Warehouse App</span>
+    <span>Warehouse App · správa skladu</span>
 </footer>
 
 <dialog th:fragment="potvrdenie" id="potvrdenie" class="dialog" aria-labelledby="potvrdenie-nadpis">
@@ -46,7 +47,7 @@
         <p id="potvrdenie-text">Naozaj chcete pokračovať?</p>
         <div class="dialog-actions">
             <button value="zrusit" class="btn btn-ghost">Zrušiť</button>
-            <button value="potvrdit" class="btn btn-danger">Potvrdiť</button>
+            <button value="potvrdit" class="btn btn-primary">Potvrdiť</button>
         </div>
     </form>
 </dialog>

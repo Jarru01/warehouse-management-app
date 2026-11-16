@@ -4,7 +4,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import warehouse.domain.Pracovnik;
@@ -32,6 +34,7 @@ import static warehouse.web.api.ApiPrihlasenie.bezCsrf;
 import static warehouse.web.api.ApiPrihlasenie.neprihlaseny;
 import static warehouse.web.api.ApiPrihlasenie.pracovnik;
 import static warehouse.web.api.ApiPrihlasenie.riaditel;
+import static warehouse.web.api.ApiPrihlasenie.sDocasnymHeslom;
 
 @WebMvcTest(RiaditelApiController.class)
 @Import({DtoMapper.class, SecurityConfig.class})
@@ -137,6 +140,54 @@ class RiaditelApiControllerTest {
                         .content("{\"id\":\"5\",\"meno\":\"Peter\",\"priezvisko\":\"Novak\",\"heslo\":\"kratke\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.chyby.heslo").exists());
+    }
+
+    @Test
+    void resetHeslaPracovnikaVrati204() throws Exception {
+        this.mockMvc.perform(post("/api/riaditel/pracovnici/5/heslo").with(riaditel())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"heslo\":\"nove-docasne-1\"}"))
+                .andExpect(status().isNoContent());
+
+        then(this.skladService).should().resetujHesloPracovnika("5", "nove-docasne-1");
+    }
+
+    @Test
+    void resetSKratkymHeslomVrati400() throws Exception {
+        this.mockMvc.perform(post("/api/riaditel/pracovnici/5/heslo").with(riaditel())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"heslo\":\"kratke\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.chyby.heslo").exists());
+    }
+
+    @Test
+    void sucasnaZmenaVrati409() throws Exception {
+        given(this.skladService.pridajRegal(5)).willThrow(new DataIntegrityViolationException("duplicita"));
+
+        this.mockMvc.perform(post("/api/riaditel/regale").with(riaditel())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"kapacita\":5}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title").value("Konflikt"));
+    }
+
+    @Test
+    void zastaraneUdajeVrati409() throws Exception {
+        willThrow(new ObjectOptimisticLockingFailureException(Regal.class, 1L))
+                .given(this.skladService).odstranRegal(1L);
+
+        this.mockMvc.perform(delete("/api/riaditel/regale/1").with(riaditel()))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void docasneHesloBlokujeApi() throws Exception {
+        this.mockMvc.perform(get("/api/riaditel/pracovnici").with(sDocasnymHeslom(Rola.RIADITEL, "123")))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.detail").value("Najprv si zmen docasne heslo."));
+
+        then(this.skladService).should(never()).pracovnici();
     }
 
     @Test

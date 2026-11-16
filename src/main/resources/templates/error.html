@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="sk" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: hlavicka('Chyba')}"></head>
+<body class="page-login">
+<main id="obsah" class="container container-narrow">
+    <div class="login-head">
+        <div class="error-code num">
+            <span th:text="${status}">500</span>
+        </div>
+        <h1 th:text="${status == 404} ? 'Stránka neexistuje' : (${status == 403} ? 'Prístup zamietnutý' : 'Niečo sa pokazilo')">
+            Niečo sa pokazilo
+        </h1>
+        <p th:text="${status == 404} ? 'Adresa, ktorú hľadáš, tu nie je.' : 'Skús to o chvíľu znova. Ak problém pretrváva, kontaktuj správcu.'">
+            Skús to o chvíľu znova.
+        </p>
+    </div>
+    <p class="text-center">
+        <a class="btn btn-primary" th:href="@{/}">Späť na úvod</a>
+    </p>
+</main>
+<footer th:replace="~{fragments/layout :: pata}"></footer>
+</body>
+</html>

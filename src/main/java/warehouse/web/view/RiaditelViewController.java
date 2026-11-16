@@ -14,6 +14,7 @@ import warehouse.domain.NeplatnaOperaciaException;
 import warehouse.service.SkladService;
 import warehouse.web.api.DtoMapper;
 import warehouse.web.api.dto.MiestnostResponse;
+import warehouse.web.api.dto.NoveHesloRequest;
 import warehouse.web.api.dto.PracovnikResponse;
 import warehouse.web.api.dto.PridatRegalRequest;
 import warehouse.web.api.dto.PrijmoutPracovnikaRequest;
@@ -114,6 +115,30 @@ public class RiaditelViewController {
         try {
             this.skladService.vylucPracovnika(id);
             attributes.addFlashAttribute("sprava", "Pracovnik bol vyluceny.");
+        } catch (NenajdenaEntitaException | NeplatnaOperaciaException e) {
+            attributes.addFlashAttribute("chyba", e.getMessage());
+        }
+        return "redirect:/riaditel";
+    }
+
+    /**
+     * Nastavi pracovnikovi nove docasne heslo.
+     * @param id id pracovnika
+     * @param heslo nove docasne heslo
+     * @param attributes flash atributy
+     * @return presmerovanie na panel
+     */
+    @PostMapping("/pracovnici/{id}/heslo")
+    public String resetujHeslo(@PathVariable String id, @RequestParam String heslo, RedirectAttributes attributes) {
+        Optional<String> chyby = this.validator.chyby(new NoveHesloRequest(heslo));
+        if (chyby.isPresent()) {
+            attributes.addFlashAttribute("chyba", chyby.get());
+            return "redirect:/riaditel";
+        }
+        try {
+            this.skladService.resetujHesloPracovnika(id, heslo);
+            attributes.addFlashAttribute("sprava",
+                    "Pracovnik " + id + " ma nove docasne heslo. Pri prihlaseni si ho musi zmenit.");
         } catch (NenajdenaEntitaException | NeplatnaOperaciaException e) {
             attributes.addFlashAttribute("chyba", e.getMessage());
         }

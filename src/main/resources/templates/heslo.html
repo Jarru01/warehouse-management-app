@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="sk" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: hlavicka('Zmena hesla')}"></head>
+<body>
+<a class="skip-link" href="#obsah">Preskočiť na obsah</a>
+<header th:replace="~{fragments/layout :: topbar(null)}"></header>
+<main id="obsah" class="container container-narrow">
+    <div class="page-head">
+        <div>
+            <span class="eyebrow">Účet</span>
+            <h1>Zmena hesla</h1>
+            <p th:if="${pouzivatel != null and pouzivatel.zmenaHesla}">
+                Prihlásil si sa dočasným heslom. Pred pokračovaním si nastav vlastné.
+            </p>
+        </div>
+    </div>
+    <div th:replace="~{fragments/layout :: spravy}"></div>
+
+    <section class="card">
+        <form method="post" th:action="@{/heslo}">
+            <div class="field">
+                <label for="sucasne-heslo">Súčasné heslo</label>
+                <input id="sucasne-heslo" type="password" name="sucasneHeslo" autocomplete="current-password"
+                       required autofocus>
+            </div>
+            <div class="field">
+                <label for="nove-heslo">Nové heslo</label>
+                <input id="nove-heslo" type="password" name="noveHeslo" autocomplete="new-password"
+                       minlength="8" maxlength="72" required>
+                <span class="hint">Aspoň 8 znakov a iné ako súčasné.</span>
+            </div>
+            <div class="field">
+                <label for="nove-heslo-znova">Nové heslo znova</label>
+                <input id="nove-heslo-znova" type="password" name="noveHesloZnova" autocomplete="new-password"
+                       minlength="8" maxlength="72" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Uložiť nové heslo</button>
+        </form>
+    </section>
+</main>
+<footer th:replace="~{fragments/layout :: pata}"></footer>
+<script th:replace="~{fragments/layout :: appskript}"></script>
+</body>
+</html>

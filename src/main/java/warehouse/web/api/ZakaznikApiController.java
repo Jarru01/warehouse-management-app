@@ -1,5 +1,7 @@
 package warehouse.web.api;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -23,6 +25,7 @@ import warehouse.web.api.dto.ZakaznikRequest;
  */
 @RestController
 @RequestMapping("/api/zakaznik")
+@Tag(name = "Zakaznik", description = "Odoslanie a vyzdvihnutie tovaru zakaznikom")
 public class ZakaznikApiController {
     private final SkladService skladService;
     private final DtoMapper mapper;
@@ -44,6 +47,7 @@ public class ZakaznikApiController {
      * @param pouzivatel prihlaseny zakaznik
      * @return vytvoreny tovar
      */
+    @Operation(summary = "Odosle tovar registrovanemu prijemcovi")
     @PostMapping("/tovar")
     @ResponseStatus(HttpStatus.CREATED)
     public TovarResponse vytvorTovar(@Valid @RequestBody VlozitTovarRequest request,
@@ -62,6 +66,7 @@ public class ZakaznikApiController {
      * @param zakaznikId id zakaznika
      * @param tovarId id tovaru
      */
+    @Operation(summary = "Vyzdvihne tovar pripraveny na vydaj")
     @PostMapping("/{zakaznikId}/vyzdvihnutie/{tovarId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void vyzdvihniTovar(@PathVariable String zakaznikId, @PathVariable String tovarId) {

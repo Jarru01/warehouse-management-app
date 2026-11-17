@@ -48,6 +48,22 @@ public interface TovarRepository extends JpaRepository<Tovar, String> {
     List<Tovar> findByMiestnostKlucAndPrijemcaId(@Param("kluc") String kluc, @Param("zakaznikId") String zakaznikId);
 
     /**
+     * Vrati vsetok tovar ulozeny v regaloch s nacitanym regalom a miestnostou jednym dotazom.
+     * @return tovar zoradeny podla regalu a slotu
+     */
+    @Query("select t from Tovar t join fetch t.regal r join fetch r.miestnost order by r.id, t.slot")
+    List<Tovar> findAllUlozeneWithDetail();
+
+    /**
+     * Vrati tovar ulozeny v regaloch jednej miestnosti jednym dotazom.
+     * @param kluc kluc miestnosti
+     * @return tovar zoradeny podla regalu a slotu
+     */
+    @Query("select t from Tovar t join fetch t.regal r join fetch r.miestnost m where m.kluc = :kluc "
+            + "order by r.id, t.slot")
+    List<Tovar> findByMiestnostKlucWithDetail(@Param("kluc") String kluc);
+
+    /**
      * Spocita tovar v regali.
      * @param regalId id regalu
      * @return pocet tovaru v regali

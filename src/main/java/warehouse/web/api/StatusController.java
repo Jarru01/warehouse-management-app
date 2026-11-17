@@ -1,5 +1,7 @@
 package warehouse.web.api;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +16,7 @@ import java.util.Map;
  * @author Juraj
  */
 @RestController
+@Tag(name = "Stav", description = "Stav aplikacie a databazy")
 public class StatusController {
     private static final String APLIKACIA = "warehouse-management-app";
 
@@ -31,6 +34,7 @@ public class StatusController {
      * Vrati stav aplikacie a spojenia s databazou. Ak databaza nie je dostupna, vrati 503 so stavom "chyba".
      * @return stav aplikacie a databazy
      */
+    @Operation(summary = "Stav aplikacie a databazy (503 pri vypadku databazy)")
     @GetMapping("/api/status")
     public ResponseEntity<Map<String, String>> status() {
         boolean databazaOk;

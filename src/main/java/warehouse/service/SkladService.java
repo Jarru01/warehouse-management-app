@@ -21,9 +21,12 @@ import warehouse.repository.RiaditelRepository;
 import warehouse.repository.TovarRepository;
 import warehouse.repository.ZakaznikRepository;
 
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Servisna vrstva so vsetkymi operaciami skladu. Kazda zmena prebieha v transakcii.
@@ -145,6 +148,35 @@ public class SkladService {
     @Transactional(readOnly = true)
     public List<Tovar> tovarVRegali(Long regalId) {
         return this.tovarRepository.findByRegalIdWithDetail(regalId);
+    }
+
+    /**
+     * Vrati regale miestnosti s ich tovarom dvoma dotazmi bez ohladu na pocet regalov.
+     * @param kluc kluc miestnosti
+     * @return regale zoradene podla id, kazdy s tovarom zoradenym podla slotu
+     */
+    @Transactional(readOnly = true)
+    public List<RegalSTovarom> regaleSTovarom(String kluc) {
+        Map<Long, List<Tovar>> tovar = podlaRegalu(this.tovarRepository.findByMiestnostKlucWithDetail(kluc));
+        return this.regalRepository.findByMiestnostKlucWithDetail(kluc).stream()
+                .map(regal -> new RegalSTovarom(regal, tovar.getOrDefault(regal.getId(), List.of())))
+                .toList();
+    }
+
+    /**
+     * Vrati vsetky regale skladu s ich tovarom, zoskupene podla kluca miestnosti, dvoma dotazmi bez ohladu
+     * na pocet miestnosti a regalov. Miestnost bez regalov v mape chyba.
+     * @return regale podla kluca miestnosti
+     */
+    @Transactional(readOnly = true)
+    public Map<String, List<RegalSTovarom>> prehladRegalov() {
+        Map<Long, List<Tovar>> tovar = podlaRegalu(this.tovarRepository.findAllUlozeneWithDetail());
+        Map<String, List<RegalSTovarom>> prehlad = new LinkedHashMap<>();
+        for (Regal regal : this.regalRepository.findAllWithDetail()) {
+            prehlad.computeIfAbsent(regal.getMiestnost().getKluc(), kluc -> new ArrayList<>())
+                    .add(new RegalSTovarom(regal, tovar.getOrDefault(regal.getId(), List.of())));
+        }
+        return prehlad;
     }
 
     /**
@@ -319,12 +351,11 @@ public class SkladService {
         if (!pracovnik.drziTovar()) {
             throw new NeplatnaOperaciaException("Pracovnik nedrzi ziadny tovar.");
         }
-        Regal regal = this.najdiVolnyRegal(pracovnik.getMiestnost().getKluc());
-        if (regal == null) {
-            throw new NeplatnaOperaciaException("V miestnosti nie je volny regal.");
-        }
+        VolneMiesto miesto = this.najdiVolneMiesto(pracovnik.getMiestnost().getKluc())
+                .orElseThrow(() -> new NeplatnaOperaciaException("V miestnosti nie je volny regal."));
+        Regal regal = miesto.regal();
+        int slot = miesto.slot();
         Tovar tovar = pracovnik.getDrzanyTovar();
-        int slot = this.najdiVolnySlot(regal);
         tovar.ulozDoRegalu(regal, slot);
         pracovnik.poloz();
         this.auditService.zaznamenaj(AuditAkcia.ULOZENIE_TOVARU, "tovar " + tovar.getId() + " do "
@@ -355,12 +386,10 @@ public class SkladService {
         if (regale.size() != 1) {
             throw new NeplatnaOperaciaException("Miestnost na prijem tovaru nema prave jeden regal.");
         }
-        Regal regal = regale.get(0);
-        if (this.tovarRepository.countByRegalId(regal.getId()) >= regal.getKapacita()) {
-            throw new NeplatnaOperaciaException("Regal v miestnosti na prijem tovaru je plny.");
-        }
+        VolneMiesto miesto = this.najdiVolneMiesto(prijem.getKluc())
+                .orElseThrow(() -> new NeplatnaOperaciaException("Regal v miestnosti na prijem tovaru je plny."));
         Tovar tovar = new Tovar(id, nazov, vaha, odosielatel, registrovanyPrijemca.naInfo());
-        tovar.ulozDoRegalu(regal, this.najdiVolnySlot(regal));
+        tovar.ulozDoRegalu(miesto.regal(), miesto.slot());
         Tovar ulozeny = this.tovarRepository.save(tovar);
         this.auditService.zaznamenaj(AuditAkcia.VLOZENIE_TOVARU,
                 "tovar " + id + " od " + odosielatel.getId() + " pre " + prijemca.getId());
@@ -391,25 +420,21 @@ public class SkladService {
                 .orElseThrow(() -> new NenajdenaEntitaException("Regal " + regalId + " neexistuje."));
     }
 
-    private Regal najdiVolnyRegal(String kluc) {
-        for (Regal regal : this.regalRepository.findByMiestnostKlucOrderByIdAsc(kluc)) {
-            if (this.tovarRepository.countByRegalId(regal.getId()) < regal.getKapacita()) {
-                return regal;
-            }
-        }
-        return null;
+    private record VolneMiesto(Regal regal, int slot) {
     }
 
-    private int najdiVolnySlot(Regal regal) {
-        Set<Integer> obsadene = new HashSet<>();
-        for (Tovar tovar : this.tovarRepository.findByRegalIdOrderBySlotAsc(regal.getId())) {
-            obsadene.add(tovar.getSlot());
-        }
-        for (int slot = 1; slot <= regal.getKapacita(); slot++) {
-            if (!obsadene.contains(slot)) {
-                return slot;
-            }
-        }
-        throw new NeplatnaOperaciaException("Regal je plny.");
+    /**
+     * Najde regal s najnizsim id, ktory ma volne miesto, a v nom najnizsi volny slot - jednym dotazom.
+     * Hibernate pred nativnym dotazom zapise neulozene zmeny, takze dotaz vidi aj tovar zobraty v tej istej
+     * transakcii.
+     */
+    private Optional<VolneMiesto> najdiVolneMiesto(String kluc) {
+        return this.regalRepository.findPrvyVolnySlot(kluc)
+                .map(volny -> new VolneMiesto(this.regal(volny.getRegalId()), volny.getSlot()));
+    }
+
+    private static Map<Long, List<Tovar>> podlaRegalu(List<Tovar> tovar) {
+        return tovar.stream().collect(Collectors.groupingBy(t -> t.getRegal().getId(), LinkedHashMap::new,
+                Collectors.toList()));
     }
 }

@@ -14,7 +14,8 @@ manages racks, the **worker** moves between rooms and handles goods, and the
 - **HTTPS** — local HTTPS with a self-signed certificate, or production behind an HTTPS reverse proxy with trusted `X-Forwarded-*` headers, `Secure` cookies and HSTS.
 - **Multi-instance ready** — sessions (Spring Session JDBC) and login attempt counters live in PostgreSQL, so they survive restarts and are shared by every instance.
 - **Role-based areas** — director, worker and customer areas; pages and REST API check the role, and workers and customers can act only on their own ID.
-- **REST API** — versionless JSON endpoints under `/api` with request DTOs, Bean Validation and RFC 9457 `ProblemDetail` errors.
+- **REST API** — versionless JSON endpoints under `/api` with request DTOs, Bean Validation and RFC 9457 `ProblemDetail` errors; interactive OpenAPI documentation (Swagger UI) for the director outside production.
+- **Performance** — screens load with a constant number of SQL queries regardless of the number of racks (director dashboard: 5), free slots are found with one SQL query, foreign keys and lookups are indexed, and CSS/JS are served under content-hashed URLs cached for a year.
 - **Warehouse rules** — racks with fixed capacity and numbered slots, hands-full workers, room-bound picking, recipient-checked pickup, safe dismissal of workers holding goods, and protected single racks in the receiving and dispatch rooms.
 - **PostgreSQL persistence** — Spring Data JPA entities with optimistic locking, Flyway schema migrations, seeded with a director and three rooms on first start.
 - **Clear errors** — conflicting simultaneous changes return `409` (API) or a message on the page instead of a crash; friendly error pages without stack traces.
@@ -161,6 +162,12 @@ server {
 ```
 
 ## 🔌 REST API
+
+**Interactive documentation:** log in as director and open
+<http://localhost:8080/swagger-ui.html> (or `/v3/api-docs` for the raw
+OpenAPI JSON). Requests use your login session; for `POST` and `DELETE` get a
+token from `GET /api/csrf` and enter it under **Authorize** as `X-CSRF-TOKEN`.
+The documentation is switched off in the `prod` profile.
 
 | Method | Path | Description |
 |---|---|---|
@@ -323,7 +330,7 @@ starts its own disposable PostgreSQL instance.
 | `warehouse.web.api` | REST controllers, DTOs, mapper and the `ProblemDetail` exception handler |
 | `warehouse.web.view` | Thymeleaf controllers, registration, password change and form validation (same DTO rules as the API) |
 | `warehouse.security` | Spring Security configuration, login by role, ID and password, login attempt limits, accounts, forced change of temporary passwords |
-| `src/main/resources/db/migration` | Flyway migrations (`V1__…` to `V3__…`) |
+| `src/main/resources/db/migration` | Flyway migrations (`V1__…` to `V5__…`) |
 | `warehouse.config` | Seed data (`DataInitializer`) |
 
 The class diagram is in [`docs/uml.puml`](docs/uml.puml).

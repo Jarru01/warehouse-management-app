@@ -1,5 +1,7 @@
 package warehouse.web.api;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,6 +22,7 @@ import warehouse.web.api.dto.ZobratTovarRequest;
  */
 @RestController
 @RequestMapping("/api/pracovnik")
+@Tag(name = "Pracovnik", description = "Operacie pracovnika nad vlastnym ID")
 public class PracovnikApiController {
     private final SkladService skladService;
     private final DtoMapper mapper;
@@ -39,6 +42,7 @@ public class PracovnikApiController {
      * @param id id pracovnika
      * @return pracovnik
      */
+    @Operation(summary = "Stav pracovnika: miestnost a drzany tovar")
     @GetMapping("/{id}")
     public PracovnikResponse pracovnik(@PathVariable String id) {
         return this.mapper.naPracovnika(this.skladService.pracovnik(id));
@@ -50,6 +54,7 @@ public class PracovnikApiController {
      * @param request poziadavka na presun
      * @return presunuty pracovnik
      */
+    @Operation(summary = "Presunie pracovnika do miestnosti")
     @PostMapping("/{id}/presun")
     public PracovnikResponse presun(@PathVariable String id, @Valid @RequestBody PresunRequest request) {
         return this.mapper.naPracovnika(this.skladService.presunPracovnika(id, request.miestnost()));
@@ -60,6 +65,7 @@ public class PracovnikApiController {
      * @param id id pracovnika
      * @param request poziadavka na zobratie tovaru
      */
+    @Operation(summary = "Pracovnik zoberie tovar z regalu v aktualnej miestnosti")
     @PostMapping("/{id}/zober")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void zoberTovar(@PathVariable String id, @Valid @RequestBody ZobratTovarRequest request) {
@@ -70,6 +76,7 @@ public class PracovnikApiController {
      * Pracovnik ulozi drzany tovar v aktualnej miestnosti.
      * @param id id pracovnika
      */
+    @Operation(summary = "Pracovnik ulozi drzany tovar do prveho volneho slotu")
     @PostMapping("/{id}/uloz")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void ulozTovar(@PathVariable String id) {

@@ -7,6 +7,11 @@ spring:
     password: warehouse
   thymeleaf:
     cache: false
+  web:
+    resources:
+      chain:
+        # Recompute CSS/JS hashes on every request so edits show up without a restart.
+        cache: false
   mail:
     # Mailpit from compose.yaml catches every e-mail; read them at http://localhost:8025
     host: localhost

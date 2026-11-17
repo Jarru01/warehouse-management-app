@@ -30,6 +30,14 @@ server:
       cookie:
         secure: true
 
+springdoc:
+  # The API description stays off in production; switch it on with
+  # SPRINGDOC_API_DOCS_ENABLED=true and SPRINGDOC_SWAGGER_UI_ENABLED=true if needed.
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
 warehouse:
   verejna-adresa: ${PUBLIC_URL}
   riaditel:

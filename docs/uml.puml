@@ -137,11 +137,18 @@ package "warehouse.service" {
   +ulozTovar(pracovnikId: String): void
   +vytvorTovar(id: String, nazov: String, vaha: int, odosielatel: ZakaznikInfo, prijemca: ZakaznikInfo): Tovar
   +vyzdvihniTovar(tovarId: String, zakaznikId: String): void
+  +regaleSTovarom(kluc: String): List<RegalSTovarom>
+  +prehladRegalov(): Map<String, List<RegalSTovarom>>
   }
 
   class HeslaService {
   +zahesuj(heslo: String): String
   +zhoduje(heslo: String, hash: String): boolean
+  }
+
+  class RegalSTovarom <<record>> {
+  +regal: Regal
+  +tovar: List<Tovar>
   }
 
   class AuditService {
@@ -189,6 +196,7 @@ package "warehouse.web.api" {
   class StatusController
   class CsrfController
   class UcetApiController
+  class OpenApiConfig
   class DtoMapper
   class GlobalExceptionHandler
   class ZakazanyPristupException
@@ -240,6 +248,7 @@ SkladService ..> NeplatnaOperaciaException
 SecurityConfig ..> PrihlasenieDetails
 SecurityConfig ..> PrihlasenyPouzivatel
 SkladService --> HeslaService
+SkladService ..> RegalSTovarom
 SkladService --> AuditService
 AuditService --> AuditZaznamRepository
 AuditZaznam ..> AuditAkcia

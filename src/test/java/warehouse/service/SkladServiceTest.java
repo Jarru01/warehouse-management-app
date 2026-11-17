@@ -19,6 +19,7 @@ import warehouse.repository.TovarRepository;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -75,6 +76,57 @@ class SkladServiceTest extends AbstractIntegrationTest {
         assertTrue(this.passwordEncoder.matches(HESLO, pracovnik.getHesloHash()));
         assertTrue(pracovnik.isZmenaHesla(), "heslo od riaditela je docasne");
         assertFalse(this.skladService.zakaznik("10").isZmenaHesla(), "zakaznik si heslo zvolil sam");
+    }
+
+    @Test
+    void ulozenieVyuzijeNajnizsiUvolnenySlot() {
+        this.vytvorTovar("100");
+        this.vytvorTovar("101");
+        this.vytvorTovar("102");
+        assertEquals(2, this.skladService.tovar("101").getSlot());
+        this.skladService.prijmiPracovnika("1", "Peter", "Novak", HESLO);
+        this.skladService.presunPracovnika("1", Miestnost.PRIJEM_TOVARU);
+
+        this.skladService.zoberTovar("1", "101");
+        this.skladService.ulozTovar("1");
+
+        Tovar tovar = this.skladService.tovar("101");
+        assertEquals(Miestnost.PRIJEM_TOVARU, tovar.getRegal().getMiestnost().getKluc());
+        assertEquals(2, tovar.getSlot(), "uvolneny slot 2 sa pouzije skor nez volny slot 4");
+    }
+
+    @Test
+    void plnyRegalSaPreskociAPouzijeSaDalsi() {
+        Regal maly = this.skladService.pridajRegal(1);
+        Regal dalsi = this.skladService.pridajRegal(2);
+        this.vytvorTovar("100");
+        this.vytvorTovar("101");
+        this.skladService.prijmiPracovnika("1", "Peter", "Novak", HESLO);
+
+        for (String tovarId : List.of("100", "101")) {
+            this.skladService.presunPracovnika("1", Miestnost.PRIJEM_TOVARU);
+            this.skladService.zoberTovar("1", tovarId);
+            this.skladService.presunPracovnika("1", Miestnost.SKLAD_TOVARU);
+            this.skladService.ulozTovar("1");
+        }
+
+        assertEquals(maly.getId(), this.skladService.tovar("100").getRegal().getId());
+        assertEquals(1, this.skladService.tovar("100").getSlot());
+        assertEquals(dalsi.getId(), this.skladService.tovar("101").getRegal().getId(), "plny regal sa preskoci");
+        assertEquals(1, this.skladService.tovar("101").getSlot());
+    }
+
+    @Test
+    void prehladRegalovVratiVsetkyRegaleSTovarom() {
+        Regal regal = this.skladService.pridajRegal(3);
+        this.vytvorTovar("100");
+
+        Map<String, List<RegalSTovarom>> prehlad = this.skladService.prehladRegalov();
+
+        assertEquals(1, prehlad.get(Miestnost.PRIJEM_TOVARU).size());
+        assertEquals("100", prehlad.get(Miestnost.PRIJEM_TOVARU).get(0).tovar().get(0).getId());
+        assertTrue(prehlad.get(Miestnost.SKLAD_TOVARU).stream()
+                .anyMatch(polozka -> polozka.regal().getId().equals(regal.getId()) && polozka.tovar().isEmpty()));
     }
 
     @Test

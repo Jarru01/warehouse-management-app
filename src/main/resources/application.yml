@@ -23,6 +23,20 @@ spring:
     # every instance. The tables are created by Flyway (V4).
     jdbc:
       initialize-schema: never
+  web:
+    resources:
+      # CSS and JS are served under URLs containing a hash of their content
+      # (/css/style-<hash>.css), so browsers may cache them for a year: a changed
+      # file gets a new URL. Pages and API responses stay uncached.
+      chain:
+        strategy:
+          content:
+            enabled: true
+            paths: /css/**,/js/**
+      cache:
+        cachecontrol:
+          max-age: 365d
+          cache-public: true
   mail:
     properties:
       mail.smtp.connectiontimeout: 5000
@@ -70,6 +84,16 @@ management:
 info:
   app:
     name: warehouse-management-app
+
+# Interactive REST API documentation (Swagger UI) at /swagger-ui.html, visible
+# only to the director. Switched off in the prod profile.
+springdoc:
+  paths-to-match: /api/**
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: method
+    display-request-duration: true
 
 warehouse:
   prihlasenie:

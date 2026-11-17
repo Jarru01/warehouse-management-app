@@ -1,5 +1,7 @@
 package warehouse.web.api;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -19,6 +21,7 @@ import warehouse.web.api.dto.ZmenaHeslaRequest;
  * @author Juraj
  */
 @RestController
+@Tag(name = "Ucet", description = "Prihlasenie a CSRF token pre REST klientov")
 public class UcetApiController {
     private final UcetService ucetService;
     private final AktualnePrihlasenie aktualnePrihlasenie;
@@ -40,6 +43,7 @@ public class UcetApiController {
      * @param request poziadavka
      * @param response odpoved
      */
+    @Operation(summary = "Zmeni heslo prihlaseneho pouzivatela")
     @PostMapping("/api/heslo")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void zmenHeslo(@Valid @RequestBody ZmenaHeslaRequest poziadavka,

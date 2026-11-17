@@ -10,10 +10,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import warehouse.domain.AuditAkcia;
 import warehouse.domain.AuditZaznam;
-import warehouse.domain.Miestnost;
 import warehouse.domain.NenajdenaEntitaException;
 import warehouse.domain.NeplatnaOperaciaException;
 import warehouse.service.AuditService;
+import warehouse.service.RegalSTovarom;
 import warehouse.service.SkladService;
 import warehouse.web.api.DtoMapper;
 import warehouse.web.api.dto.MiestnostResponse;
@@ -84,10 +84,11 @@ public class RiaditelViewController {
                 .map(this.mapper::naPracovnika).toList();
         List<MiestnostResponse> miestnosti = this.skladService.miestnosti().stream()
                 .map(this.mapper::naMiestnost).toList();
+        Map<String, List<RegalSTovarom>> prehlad = this.skladService.prehladRegalov();
         Map<String, List<RegalResponse>> regale = new LinkedHashMap<>();
-        for (Miestnost miestnost : this.skladService.miestnosti()) {
-            regale.put(miestnost.getKluc(), this.skladService.regale(miestnost.getKluc()).stream()
-                    .map(regal -> this.mapper.naRegal(regal, this.skladService.tovarVRegali(regal.getId())))
+        for (MiestnostResponse miestnost : miestnosti) {
+            regale.put(miestnost.kluc(), prehlad.getOrDefault(miestnost.kluc(), List.of()).stream()
+                    .map(polozka -> this.mapper.naRegal(polozka.regal(), polozka.tovar()))
                     .toList());
         }
         model.addAttribute("pracovnici", pracovnici);

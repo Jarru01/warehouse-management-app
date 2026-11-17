@@ -546,6 +546,51 @@ class ViewFlowTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void cssAJsMajuVerziuVAdreseADlhuCache() throws Exception {
+        String stranka = this.mockMvc.perform(get("/")).andReturn().getResponse().getContentAsString();
+        Matcher css = Pattern.compile("/css/style-[0-9a-f]{32}\\.css").matcher(stranka);
+        Matcher js = Pattern.compile("/js/app-[0-9a-f]{32}\\.js").matcher(stranka);
+        assertTrue(css.find(), "stranka odkazuje na CSS s hashom obsahu");
+        assertTrue(js.find(), "stranka odkazuje na JS s hashom obsahu");
+
+        this.mockMvc.perform(get(css.group()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", containsString("max-age=31536000")))
+                .andExpect(content().string(containsString("--blue-700")));
+        this.mockMvc.perform(get(js.group()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", containsString("max-age=31536000")));
+        this.mockMvc.perform(get("/"))
+                .andExpect(header().string("Cache-Control", containsString("no-cache")));
+    }
+
+    @Test
+    void popisApiVidiIbaRiaditel() throws Exception {
+        this.mockMvc.perform(get("/v3/api-docs")).andExpect(redirectedUrl("/"));
+
+        this.skladService.prijmiPracovnika("1", "Peter", "Novak", HESLO);
+        this.mockMvc.perform(get("/v3/api-docs").session(this.prihlas(Rola.PRACOVNIK, "1", HESLO)))
+                .andExpect(redirectedUrl("/"));
+
+        MockHttpSession riaditel = this.prihlas(Rola.RIADITEL, "123", this.hesloRiaditela);
+        this.mockMvc.perform(get("/v3/api-docs").session(riaditel))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.info.title").value("Warehouse App API"))
+                .andExpect(jsonPath("$.paths['/api/riaditel/pracovnici'].post.summary")
+                        .value("Prijme pracovnika s docasnym heslom"))
+                .andExpect(jsonPath("$.paths['/api/zakaznik/tovar']").exists())
+                .andExpect(jsonPath("$.paths['/riaditel']").doesNotExist())
+                .andExpect(jsonPath("$.components.securitySchemes.csrf.name").value("X-CSRF-TOKEN"));
+        this.mockMvc.perform(get("/swagger-ui/index.html").session(riaditel))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Security-Policy",
+                        containsString("style-src 'self' 'unsafe-inline'")))
+                .andExpect(header().string("Content-Security-Policy", containsString("script-src 'self';")));
+        this.mockMvc.perform(get("/riaditel").session(riaditel))
+                .andExpect(header().string("Content-Security-Policy", not(containsString("unsafe-inline"))));
+    }
+
+    @Test
     void strankyPosielajuBezpecnostneHlavicky() throws Exception {
         this.mockMvc.perform(get("/"))
                 .andExpect(header().string("Content-Security-Policy", containsString("default-src 'self'")))

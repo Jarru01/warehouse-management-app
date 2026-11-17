@@ -22,8 +22,11 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CsrfException;
+import org.springframework.security.web.header.writers.DelegatingRequestMatcherHeaderWriter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.security.web.util.matcher.AnyRequestMatcher;
+import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import java.io.IOException;
@@ -43,6 +46,12 @@ public class SecurityConfig {
     /** Stranky smu nacitat iba vlastne skripty a styly; vlozene skripty ani cudzie zdroje nie su povolene. */
     static final String CONTENT_SECURITY_POLICY = "default-src 'self'; script-src 'self'; style-src 'self'; "
             + "img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+    /** Swagger UI (iba pre riaditela, mimo produkcie) potrebuje vlozene styly; skripty zostavaju obmedzene. */
+    static final String CONTENT_SECURITY_POLICY_SWAGGER = CONTENT_SECURITY_POLICY
+            .replace("style-src 'self'", "style-src 'self' 'unsafe-inline'");
+
+    private static final RequestMatcher SWAGGER_UI = request ->
+            request.getRequestURI().startsWith(request.getContextPath() + "/swagger-ui");
 
     private static final RequestMatcher API = request ->
             request.getRequestURI().startsWith(request.getContextPath() + "/api/");
@@ -80,12 +89,15 @@ public class SecurityConfig {
         http
                 .securityContext(kontext -> kontext.securityContextRepository(securityContextRepository))
                 .headers(hlavicky -> hlavicky
-                        .contentSecurityPolicy(csp -> csp.policyDirectives(CONTENT_SECURITY_POLICY))
+                        .addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(SWAGGER_UI,
+                                new StaticHeadersWriter("Content-Security-Policy", CONTENT_SECURITY_POLICY_SWAGGER)))
+                        .addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(new NegatedRequestMatcher(SWAGGER_UI),
+                                new StaticHeadersWriter("Content-Security-Policy", CONTENT_SECURITY_POLICY)))
                         .referrerPolicy(referrer -> referrer.policy(
                                 ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN)))
                 .authorizeHttpRequests(pristup -> pristup
                         .requestMatchers("/", "/registracia", "/heslo/zabudnute", "/heslo/obnova",
-                                "/style.css", "/app.js", "/error",
+                                "/css/**", "/js/**", "/error",
                                 "/api/status", "/api/csrf",
                                 "/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/riaditel", "/riaditel/**", "/api/riaditel/**").hasRole(Rola.RIADITEL.name())
@@ -98,6 +110,8 @@ public class SecurityConfig {
                         .access(vlastnaIdentita(Rola.ZAKAZNIK, "zakaznikId"))
                         .requestMatchers("/api/miestnosti", "/api/miestnosti/**")
                         .hasAnyRole(Rola.RIADITEL.name(), Rola.PRACOVNIK.name())
+                        .requestMatchers("/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**")
+                        .hasRole(Rola.RIADITEL.name())
                         .anyRequest().authenticated())
                 .formLogin(prihlasenie -> prihlasenie
                         .loginPage("/")

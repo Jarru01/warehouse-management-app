@@ -56,8 +56,9 @@ public class PracovnikViewController {
             Pracovnik pracovnik = this.skladService.pracovnik(pouzivatel.id());
             List<MiestnostResponse> miestnosti = this.skladService.miestnosti().stream()
                     .map(this.mapper::naMiestnost).toList();
-            List<RegalResponse> regale = this.skladService.regale(pracovnik.getMiestnost().getKluc()).stream()
-                    .map(regal -> this.mapper.naRegal(regal, this.skladService.tovarVRegali(regal.getId())))
+            List<RegalResponse> regale = this.skladService.regaleSTovarom(pracovnik.getMiestnost().getKluc())
+                    .stream()
+                    .map(polozka -> this.mapper.naRegal(polozka.regal(), polozka.tovar()))
                     .toList();
             model.addAttribute("pracovnik", this.mapper.naPracovnika(pracovnik));
             model.addAttribute("miestnosti", miestnosti);

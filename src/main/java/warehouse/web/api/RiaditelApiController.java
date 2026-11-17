@@ -1,5 +1,7 @@
 package warehouse.web.api;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -32,6 +34,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/riaditel")
+@Tag(name = "Riaditel", description = "Pracovnici, regale a audit (iba riaditel)")
 public class RiaditelApiController {
     private final SkladService skladService;
     private final AuditService auditService;
@@ -55,6 +58,7 @@ public class RiaditelApiController {
      * @param akcia druh udalosti, napriklad NEUSPESNE_PRIHLASENIE
      * @return zaznamy od najnovsieho
      */
+    @Operation(summary = "Najnovsie zaznamy auditu, volitelne podla akcie")
     @GetMapping("/audit")
     public List<AuditZaznamResponse> audit(@RequestParam(defaultValue = "50") int pocet,
                                            @RequestParam(required = false) AuditAkcia akcia) {
@@ -69,6 +73,7 @@ public class RiaditelApiController {
      * @param id id riaditela
      * @return riaditel
      */
+    @Operation(summary = "Profil riaditela")
     @GetMapping("/{id}")
     public RiaditelResponse riaditel(@PathVariable String id) {
         return this.mapper.naRiaditela(this.skladService.riaditel(id));
@@ -78,6 +83,7 @@ public class RiaditelApiController {
      * Vrati vsetkych pracovnikov.
      * @return zoznam pracovnikov
      */
+    @Operation(summary = "Zoznam pracovnikov")
     @GetMapping("/pracovnici")
     public List<PracovnikResponse> pracovnici() {
         return this.skladService.pracovnici().stream().map(this.mapper::naPracovnika).toList();
@@ -88,6 +94,7 @@ public class RiaditelApiController {
      * @param request poziadavka na prijatie
      * @return prijaty pracovnik
      */
+    @Operation(summary = "Prijme pracovnika s docasnym heslom")
     @PostMapping("/pracovnici")
     @ResponseStatus(HttpStatus.CREATED)
     public PracovnikResponse prijmiPracovnika(@Valid @RequestBody PrijmoutPracovnikaRequest request) {
@@ -100,6 +107,7 @@ public class RiaditelApiController {
      * Vyluci pracovnika s danym id.
      * @param id id pracovnika
      */
+    @Operation(summary = "Vyluci pracovnika; drzany tovar najprv ulozi")
     @DeleteMapping("/pracovnici/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void vylucPracovnika(@PathVariable String id) {
@@ -111,6 +119,7 @@ public class RiaditelApiController {
      * @param id id pracovnika
      * @param request nove docasne heslo
      */
+    @Operation(summary = "Nastavi pracovnikovi nove docasne heslo")
     @PostMapping("/pracovnici/{id}/heslo")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resetujHeslo(@PathVariable String id, @Valid @RequestBody NoveHesloRequest request) {
@@ -122,6 +131,7 @@ public class RiaditelApiController {
      * @param request poziadavka na pridanie regalu
      * @return pridany regal
      */
+    @Operation(summary = "Prida regal do hlavneho skladu")
     @PostMapping("/regale")
     @ResponseStatus(HttpStatus.CREATED)
     public RegalResponse pridajRegal(@Valid @RequestBody PridatRegalRequest request) {
@@ -133,6 +143,7 @@ public class RiaditelApiController {
      * Odstrani prazdny regal s danym id.
      * @param id id regalu
      */
+    @Operation(summary = "Odstrani prazdny regal hlavneho skladu")
     @DeleteMapping("/regale/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void odstranRegal(@PathVariable Long id) {

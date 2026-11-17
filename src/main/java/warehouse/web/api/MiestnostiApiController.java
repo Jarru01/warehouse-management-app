@@ -1,10 +1,11 @@
 package warehouse.web.api;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import warehouse.domain.Regal;
 import warehouse.service.SkladService;
 import warehouse.web.api.dto.MiestnostResponse;
 import warehouse.web.api.dto.RegalResponse;
@@ -17,6 +18,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/miestnosti")
+@Tag(name = "Miestnosti", description = "Prehlad miestnosti a regalov (riaditel, pracovnik)")
 public class MiestnostiApiController {
     private final SkladService skladService;
     private final DtoMapper mapper;
@@ -35,6 +37,7 @@ public class MiestnostiApiController {
      * Vrati vsetky miestnosti.
      * @return zoznam miestnosti
      */
+    @Operation(summary = "Zoznam miestnosti")
     @GetMapping
     public List<MiestnostResponse> miestnosti() {
         return this.skladService.miestnosti().stream().map(this.mapper::naMiestnost).toList();
@@ -45,14 +48,11 @@ public class MiestnostiApiController {
      * @param kluc kluc miestnosti
      * @return zoznam regalov
      */
+    @Operation(summary = "Regale miestnosti s ulozenym tovarom")
     @GetMapping("/{kluc}/regale")
     public List<RegalResponse> regale(@PathVariable String kluc) {
-        return this.skladService.regale(kluc).stream()
-                .map(regal -> this.naRegal(regal))
+        return this.skladService.regaleSTovarom(kluc).stream()
+                .map(polozka -> this.mapper.naRegal(polozka.regal(), polozka.tovar()))
                 .toList();
-    }
-
-    private RegalResponse naRegal(Regal regal) {
-        return this.mapper.naRegal(regal, this.skladService.tovarVRegali(regal.getId()));
     }
 }

@@ -4,6 +4,9 @@ certs/
 # Local secrets for docker compose (see .env.example)
 .env
 
+# Database backups (deploy/backup)
+backups/
+
 # Build output
 out/
 build/

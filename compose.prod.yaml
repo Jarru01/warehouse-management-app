@@ -1,0 +1,53 @@
+# Production override for a public server. Use together with compose.yaml:
+#   docker compose -f compose.yaml -f compose.prod.yaml --profile app up -d --build
+# Every value comes from .env (template: .env.prod.example); a missing required
+# value stops compose before anything starts.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  db:
+    # The database is reachable only from the other containers, never from outside.
+    ports: !reset []
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    logging: *logging
+
+  # The development mail catcher is not used on a server; mail goes to real SMTP.
+  mail:
+    profiles: ["dev-only"]
+
+  app:
+    depends_on: !override
+      db:
+        condition: service_healthy
+    environment:
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      WAREHOUSE_RIADITEL_HESLO: ${WAREHOUSE_RIADITEL_HESLO:?Set WAREHOUSE_RIADITEL_HESLO in .env}
+      PUBLIC_URL: https://${DOMAIN:?Set DOMAIN in .env}
+      MAIL_HOST: ${MAIL_HOST:?Set MAIL_HOST in .env}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_STARTTLS: ${MAIL_STARTTLS:-true}
+      MAIL_FROM: ${MAIL_FROM:?Set MAIL_FROM in .env}
+    logging: *logging
+
+  proxy:
+    environment:
+      SITE_ADDRESS: ${DOMAIN:?Set DOMAIN in .env}
+    # 80 is needed for the Let's Encrypt HTTP challenge and the redirect to HTTPS.
+    ports: !override
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    logging: *logging
+
+  backup:
+    environment:
+      PGPASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    logging: *logging

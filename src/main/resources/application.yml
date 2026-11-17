@@ -53,6 +53,12 @@ management:
       show-details: never
       probes:
         enabled: true
+      group:
+        # Readiness also checks the database, so monitoring notices a lost
+        # connection. Liveness stays process-only: a database outage must not
+        # make Docker restart the application.
+        readiness:
+          include: readinessState,db
   health:
     # An unavailable mail server must not mark the whole application as down.
     mail:

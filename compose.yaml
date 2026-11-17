@@ -1,9 +1,13 @@
 # Development:  docker compose up -d
 #   starts PostgreSQL and the Mailpit test mail server; run the app with Gradle.
-# Full stack:   docker compose --profile app up -d --build
-#   additionally builds and runs the application container (prod profile)
-#   behind a Caddy HTTPS reverse proxy at https://localhost:8443.
-#   Needs a .env file with WAREHOUSE_RIADITEL_HESLO (see .env.example).
+#
+# Full stack on this computer:  docker compose --profile app up -d --build
+#   adds the application container (prod profile), Caddy as HTTPS reverse proxy
+#   at https://localhost:8443 and nightly database backups into ./backups.
+#   Needs a .env file (copy .env.example).
+#
+# Server:  docker compose -f compose.yaml -f compose.prod.yaml --profile app up -d --build
+#   see docs/DEPLOYMENT.md and .env.prod.example.
 services:
   db:
     image: postgres:17-alpine
@@ -11,7 +15,8 @@ services:
     environment:
       POSTGRES_DB: sklad
       POSTGRES_USER: warehouse
-      POSTGRES_PASSWORD: warehouse
+      # Applied only when the data volume is created for the first time.
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-warehouse}
     ports:
       - "5432:5432"
     volumes:
@@ -21,6 +26,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
   # Development mail server: catches every e-mail the app sends (password
   # recovery). Web inbox at http://localhost:8025, SMTP on port 1025.
@@ -45,14 +51,16 @@ services:
       SPRING_PROFILES_ACTIVE: prod
       DB_URL: jdbc:postgresql://db:5432/sklad
       DB_USERNAME: warehouse
-      DB_PASSWORD: warehouse
+      DB_PASSWORD: ${DB_PASSWORD:-warehouse}
       WAREHOUSE_RIADITEL_HESLO: ${WAREHOUSE_RIADITEL_HESLO:-}
-      PUBLIC_URL: https://localhost:8443
-      MAIL_HOST: mail
-      MAIL_PORT: "1025"
-      MAIL_SMTP_AUTH: "false"
-      MAIL_STARTTLS: "false"
-      MAIL_FROM: "Warehouse App <noreply@warehouse.local>"
+      PUBLIC_URL: ${PUBLIC_URL:-https://localhost:8443}
+      MAIL_HOST: ${MAIL_HOST:-mail}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-false}
+      MAIL_STARTTLS: ${MAIL_STARTTLS:-false}
+      MAIL_FROM: ${MAIL_FROM:-Warehouse App <noreply@warehouse.local>}
     # No published port: the application is reachable only through the proxy.
     expose:
       - "8080"
@@ -65,13 +73,49 @@ services:
     depends_on:
       app:
         condition: service_healthy
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
     ports:
-      - "8443:8443"
+      - "8443:443"
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - warehouse-caddy:/data
+      - warehouse-caddy-config:/config
+    restart: unless-stopped
+
+  # Nightly pg_dump with rotation (7 daily, 4 weekly, 6 monthly by default),
+  # optional off-site copy (rclone) and heartbeat for monitoring.
+  # Manual commands: docker compose --profile app run --rm backup zaloha|zoznam|obnov SUBOR
+  backup:
+    profiles: ["app", "backup"]
+    build: ./deploy/backup
+    image: warehouse-backup:1.0.0
+    container_name: warehouse-backup
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGDATABASE: sklad
+      PGUSER: warehouse
+      PGPASSWORD: ${DB_PASSWORD:-warehouse}
+      BACKUP_TIME: ${BACKUP_TIME:-02:30}
+      BACKUP_KEEP_DAILY: ${BACKUP_KEEP_DAILY:-7}
+      BACKUP_KEEP_WEEKLY: ${BACKUP_KEEP_WEEKLY:-4}
+      BACKUP_KEEP_MONTHLY: ${BACKUP_KEEP_MONTHLY:-6}
+      BACKUP_OFFSITE: ${BACKUP_OFFSITE:-}
+      BACKUP_HEARTBEAT_URL: ${BACKUP_HEARTBEAT_URL:-}
+      RCLONE_CONFIG_OFFSITE_TYPE: ${RCLONE_CONFIG_OFFSITE_TYPE:-}
+      RCLONE_CONFIG_OFFSITE_PROVIDER: ${RCLONE_CONFIG_OFFSITE_PROVIDER:-}
+      RCLONE_CONFIG_OFFSITE_ACCESS_KEY_ID: ${RCLONE_CONFIG_OFFSITE_ACCESS_KEY_ID:-}
+      RCLONE_CONFIG_OFFSITE_SECRET_ACCESS_KEY: ${RCLONE_CONFIG_OFFSITE_SECRET_ACCESS_KEY:-}
+      RCLONE_CONFIG_OFFSITE_ENDPOINT: ${RCLONE_CONFIG_OFFSITE_ENDPOINT:-}
+      RCLONE_CONFIG_OFFSITE_REGION: ${RCLONE_CONFIG_OFFSITE_REGION:-}
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/backups
     restart: unless-stopped
 
 volumes:
   warehouse-pgdata:
   warehouse-caddy:
+  warehouse-caddy-config:

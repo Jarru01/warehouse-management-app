@@ -7,6 +7,8 @@
 build
 out
 certs
+backups
+deploy
 docs
 *.iml
 *.log

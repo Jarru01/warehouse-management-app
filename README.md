@@ -20,8 +20,10 @@ manages racks, the **worker** moves between rooms and handles goods, and the
 - **Clear errors** — conflicting simultaneous changes return `409` (API) or a message on the page instead of a crash; friendly error pages without stack traces.
 - **Brute-force protection** — after 5 failed logins per account or 20 per IP address within 15 minutes, further attempts are refused until the window ends.
 - **Audit log** — every login, failed or blocked login, logout and change is stored with who, when and what; the director sees the latest events on the dashboard and through the API. Records older than 365 days are deleted by a nightly maintenance job.
-- **Health checks** — `/actuator/health` (plus `liveness` and `readiness`) for monitoring; strict security headers including a Content-Security-Policy.
+- **Health checks** — `/actuator/health`, `liveness` (process) and `readiness` (includes the database) for monitoring; strict security headers including a Content-Security-Policy.
 - **Docker** — multi-stage, layered image running as a non-root user with a built-in health check; one command starts the whole stack behind an HTTPS reverse proxy.
+- **Backups** — nightly verified `pg_dump` with daily/weekly/monthly rotation, optional off-site copy to S3-compatible storage, heartbeat for monitoring, and a one-command restore.
+- **Deployment guide** — server setup with a real domain and automatic Let's Encrypt certificate, plus monitoring setup, in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 - **Tests** — domain services, repositories and both web layers covered by integration tests running against a real PostgreSQL via Testcontainers.
 
 ## 🧱 Tech Stack
@@ -226,8 +228,8 @@ curl -b cookies.txt -X POST http://localhost:8080/api/riaditel/pracovnici \
 ## 🐳 Docker
 
 The whole application runs in containers with one command: PostgreSQL,
-Mailpit, the application (production profile) and Caddy as the HTTPS reverse
-proxy in front of it.
+Mailpit, the application (production profile), Caddy as the HTTPS reverse
+proxy in front of it, and nightly database backups into `./backups`.
 
 1. Create the local secrets file once and set the director's temporary password:
 
@@ -258,12 +260,20 @@ then builds the image.
 | Start the full stack | `docker compose --profile app up -d --build` |
 | Follow application logs | `docker compose logs -f app` |
 | Stop the full stack (keep data) | `docker compose --profile app down` |
+| Back up the database now | `docker compose --profile app run --rm backup zaloha` |
+| List backups | `docker compose --profile app run --rm backup zoznam` |
+| Restore a backup (stop `app` first) | `docker compose --profile app run --rm backup obnov daily/sklad-….dump` |
 | Build only the image | `docker build -t warehouse-management-app:2.0.0 .` |
 
-On a real server, replace `https://localhost:8443` in `deploy/Caddyfile` with
-the public domain and remove `tls internal`; Caddy then obtains a Let's Encrypt
-certificate automatically. Set `PUBLIC_URL`, the database credentials and a real
-SMTP server in the `app` service's environment.
+## 🌍 Production server
+
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) is the step-by-step guide for a
+Linux server with a public domain: DNS and firewall, `.env` from
+[`.env.prod.example`](.env.prod.example), starting with
+`docker compose -f compose.yaml -f compose.prod.yaml --profile app up -d --build`
+(Let's Encrypt certificate, ports 80/443 only, no exposed database, log
+rotation), updates, backups with off-site copies and tested restore, and how to
+connect uptime and backup monitoring to the health endpoints.
 
 ## 🧰 Common Commands
 
